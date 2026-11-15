@@ -7,6 +7,7 @@ Tactical hyperlocalized EVA navigation HUD for Mars surface exploration, built f
 **Martian Map** focuses on **Jezero Crater** and combines NASA planetary imagery, contextual space-weather notifications and illustrative planning tools for Extravehicular Activities (EVAs):
 
 - **Multi-Layer Mars Visualization:** Combines Viking optical imagery, MOLA elevation tiles and the historical CTX mosaic.
+- **Local Science Objective:** Select an image-localized crater observation point with a proposed astronaut activity and source provenance.
 - **Space Weather Context:** Shows NASA DONKI CME notifications with their original issue dates, source links and query availability. These are not local radiation measurements.
 - **Modeled EVA Return Envelope and Target:** Illustrates outward-and-return travel reach from simulated oxygen/battery budgets and evaluates a selected target's direct travel budget. An optional radiation scenario adds a demo dose cap.
 - **Pressurized Glove Mode:** Use **Glove mode** in the header for 44 px controls, opaque panels, and high-contrast active and keyboard focus states. The toggle preserves the current map, target, and reserves.
@@ -154,11 +155,38 @@ The target color applies to one pixel-sized marker and a dashed **Direct estimat
 | 100% / 100% | 3,000 m | 180 min | -36 min | Exceeds modeled budget |
 | Either resource at 20% or below | Target retained | Depends on distance | Zero budget minus round-trip time | No excursion budget |
 
-The reference line connects the two coordinates in the map projection and splits at the antimeridian when the shorter longitudinal span crosses it. Distance is computed separately on the Mars sphere. The illustrative calculation uses the same capacities, 20 percentage-point protected reserve, constant 2 km/h speed and consumption, and direct travel without stops. Terrain, obstacles, science objectives and measured radiation would require separate datasets and analysis.
+The reference line connects the two coordinates in the map projection and splits at the antimeridian when the shorter longitudinal span crosses it. Distance is computed separately on the Mars sphere. The illustrative calculation uses the same capacities, 20 percentage-point protected reserve, constant 2 km/h speed and consumption, and direct travel without stops. Terrain, obstacles, measured radiation and time spent on science still require separate data and analysis.
 
 Numeric checks generated target coordinates with the existing Mars envelope geometry for 1,800, 2,400 and 3,000 m. Additional checks covered distances 0.009 m and 0.011 m on either side of the limit, low reserves, null selection and zero budget at the Habitat. Interactive Chromium checks covered click/touch selection, replacement, clear, keyboard center selection and focus, unchanged view on selection/reserve edits, persistence across reset/framing/pan/zoom and the four imagery modes, and a simulated CTX HTTP 503 fallback. Marker/line counts remained one when selected and zero after clearing. Layouts were reviewed at 1440 × 900, 768 × 1024, 390 × 844, 320 × 568 and 667 × 375, including a touch-enabled browser context. Small panels scroll internally. These checks do not verify physical devices, screen readers, other browser engines or real terrain suitability.
 
 Review captures: [within budget](output/playwright/target-within.png), [budget exceeded with the same target](output/playwright/target-exceeded.png), [zero budget with target retained](output/playwright/target-zero.png). Browser clicks select map coordinates at display-pixel precision; the numeric reference cases above use generated spherical coordinates before display rounding.
+
+## Science objective and local destination
+
+**Science objective** proposes investigating how a small crater modifies Jezero's floor. **East crater survey** is a Tuxonauts descriptive label for an observation point beside the eastern rim, not an official NASA place name or a rover sampling location. The historical CTX mosaic visibly contains an arcuate rim and a contrasting interior. The proposed astronaut activity is to photograph rim/floor textures and compare them with the orbital view. No local composition, age, slope, or confirmed traversability is inferred from these images.
+
+The [USGS regional geologic map](https://www.usgs.gov/maps/geologic-map-jezero-crater-and-nili-planum-region-mars) supplies scientific context: its 1:75,000 mapping distinguishes surface units using image morphology, tone and texture, including crater units. It does not provide the point used here, and no regional geologic unit has been assigned to this small feature. The NASA [delta sampling example](https://science.nasa.gov/resource/two-perseverance-sampling-locations-in-jezeros-delta/) provides broader mission context; its delta observations are not transferred to this site.
+
+### Image-derived coordinates
+
+The point is **18.367767333984375 N, 77.61909484863281 E**, interpreted from the georeferenced [CTX service tile 10/407/1465](https://astro.arcgis.com/arcgis/rest/services/OnMars/CTX/MapServer/tile/10/407/1465). The [provider metadata](https://astro.arcgis.com/arcgis/rest/services/OnMars/CTX/MapServer?f=pjson) specifies the angular grid. With service level 10, origin (-180, 90), tile size 512 and tile span 180 / 2^10 degrees, continuous pixel-edge offsets `(x, y)` map to:
+
+```text
+longitude = -180 + (1465 + x / 512) * 180 / 1024
+latitude  =   90 - (407  + y / 512) * 180 / 1024
+```
+
+The chosen offset is **(290, 260)**. This tile samples approximately 20.4 m/pixel north–south and 19.3 m/pixel east–west here; the level-12 tiles listed below provide approximately 5.1 / 4.8 m/pixel and were also inspected. A 1st–99th percentile display stretch was used for inspection only. The application's map keeps the source imagery unchanged. Manual placement precision is of order **50 m relative to the mosaic**, not an absolute-position accuracy guarantee. This preliminary/uncontrolled mosaic has unquantified registration error and variable source coverage.
+
+Reference tile, fetched and decoded on 2026-11-15: [unchanged local snapshot](public/science/ctx-reference.png), SHA-256 `0b6a0b8f8053291738d15cd82dfdafd2e00026fc6b4c42634bf5117cfc7e48f0`. Credits: NASA / JPL / MSSS / Caltech Murray Lab / Esri. Higher-detail inspection used service tiles [12/1629/5861](https://astro.arcgis.com/arcgis/rest/services/OnMars/CTX/MapServer/tile/12/1629/5861), [12/1629/5862](https://astro.arcgis.com/arcgis/rest/services/OnMars/CTX/MapServer/tile/12/1629/5862), [12/1630/5861](https://astro.arcgis.com/arcgis/rest/services/OnMars/CTX/MapServer/tile/12/1630/5861) and [12/1630/5862](https://astro.arcgis.com/arcgis/rest/services/OnMars/CTX/MapServer/tile/12/1630/5862). These four tiles all returned complete 512 × 512 PNGs during inspection.
+
+### Selection and budget
+
+**Select science site** and the keyboard-accessible diamond marker set the same destination and existing direct budget estimate. The marker appears at display zoom 10 or closer to avoid overlapping the Habitat at regional zooms. **Show science area** explicitly frames the local area, independently of remaining reserves. Choosing a free target, including Use map center, removes the scientific association; Clear target removes the selection. Imagery, weather and reserve changes retain its identity.
+
+The unchanged Habitat and Mars sphere give **2,315.646731 m one way**, **138.938804 min round trip** and **+5.061196 min** at 100/100 reserves with radiation simulation off. This fits the illustrative 2,400 m radial budget. Neither the Habitat nor suit assumptions were moved to obtain that result. **Science work and stops are not included in the travel budget**; this is a proposed observation activity, not a complete mission timeline.
+
+Interactive Chromium verification covered button and marker selection by keyboard, visible marker focus, correct coordinates/budget, free-target reassociation and clearing. Review capture: [science objective and destination](output/playwright/science-objective.png).
 
 ## Radiation dose simulation
 

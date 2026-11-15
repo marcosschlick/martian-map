@@ -295,6 +295,12 @@ body,
   outline-offset: -2px;
 }
 
+.science-site-marker:focus-visible {
+  outline: 2px solid #06b6d4;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
 .leaflet-bar {
   border: 1px solid #1e293b !important;
   border-radius: 0.5rem !important;

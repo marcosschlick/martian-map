@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import MarsMap from "./MarsMap.jsx";
 import SpaceWeather, { SpaceWeatherBadge } from "./SpaceWeather.jsx";
 import { CardHeader, Icon, Meter, StatusDot } from "./HudKit.jsx";
@@ -9,6 +9,7 @@ import {
   FOCUS_RING,
   INSET,
   LABEL,
+  LINK,
   SUMMARY,
   TOGGLE,
   TONE_HEX,
@@ -23,6 +24,7 @@ import {
   RESERVE_WARNING_PERCENT,
 } from "./evaModel.js";
 import { useSpaceWeather } from "./useSpaceWeather.js";
+import { SCIENCE_SITE, SCIENCE_SOURCES } from "./scienceData.js";
 
 const RESERVE_OPTIONS = [
   { id: "oxygen", label: "Oxygen", budgetKey: "oxygenBudgetMinutes" },
@@ -173,7 +175,18 @@ function RadiationSimulation({
 export default function App() {
   const [activeLayer, setActiveLayer] = useState("optical");
   const [reserves, setReserves] = useState(FULL_RESERVES);
-  const [target, setTarget] = useState(null);
+  const [selection, setSelection] = useState(null);
+  const target = selection?.coordinate ?? null;
+  const scienceSelected = selection?.siteId === SCIENCE_SITE.id;
+  const selectFreeTarget = useCallback((coordinate) => {
+    setSelection({ coordinate, siteId: null });
+  }, []);
+  const selectScienceTarget = useCallback(() => {
+    setSelection({
+      coordinate: SCIENCE_SITE.coordinate,
+      siteId: SCIENCE_SITE.id,
+    });
+  }, []);
   const [radiationScenario, setRadiationScenario] = useState("off");
   const [remainingDoseMicroSv, setRemainingDoseMicroSv] = useState(
     RADIATION_SIMULATION.maxRemainingDoseMicroSv,
@@ -253,7 +266,8 @@ export default function App() {
             reservesPanelRef={reservesPanelRef}
             target={target}
             targetTone={targetEvaluation?.tone}
-            onTargetSelect={setTarget}
+            onTargetSelect={selectFreeTarget}
+            onScienceSelect={selectScienceTarget}
           />
         </div>
 
@@ -362,6 +376,91 @@ export default function App() {
             </p>
           </div>
 
+          <section className={CARD} aria-labelledby="science-objective-title">
+            <CardHeader
+              icon="target"
+              id="science-objective-title"
+              title="Science objective"
+            />
+            <p className="mt-2 text-xs text-slate-50">
+              {SCIENCE_SITE.objective}
+            </p>
+            <p className="mt-2 text-xs font-semibold text-cyan-500">
+              {SCIENCE_SITE.name}
+            </p>
+            <p className={`mt-1 ${LABEL}`}>
+              Project label · Approximate image-derived position
+            </p>
+            <p className={`mt-1 font-mono ${LABEL}`}>
+              {formatCoordinate(SCIENCE_SITE.coordinate[0], "N", "S")},{" "}
+              {formatCoordinate(SCIENCE_SITE.coordinate[1], "E", "W")}
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                aria-pressed={scienceSelected}
+                onClick={selectScienceTarget}
+                className={TOGGLE}
+              >
+                Select science site
+              </button>
+              <button
+                type="button"
+                onClick={() => mapRef.current?.showScienceArea()}
+                className={BUTTON}
+              >
+                Show science area
+              </button>
+            </div>
+            <details className="mt-2 text-[11px] leading-relaxed text-slate-400">
+              <summary className={SUMMARY}>
+                <Icon name="chevron" className="size-3" />
+                Evidence and proposed activity
+              </summary>
+              <p className="mt-2">
+                <span className="text-slate-50">Image interpretation: </span>
+                {SCIENCE_SITE.observation}
+              </p>
+              <p className="mt-2">
+                <span className="text-slate-50">
+                  Proposed astronaut activity:{" "}
+                </span>
+                {SCIENCE_SITE.activity}
+              </p>
+              <p className="mt-2">
+                Work at the site is not included in the travel budget. Placement
+                precision is approximately 50 m relative to the mosaic; absolute
+                registration accuracy is unquantified.
+              </p>
+              <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+                <a
+                  className={LINK}
+                  href={SCIENCE_SOURCES.imagery}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  CTX reference image
+                </a>
+                <a
+                  className={LINK}
+                  href={SCIENCE_SOURCES.geology}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  USGS regional context
+                </a>
+                <a
+                  className={LINK}
+                  href={SCIENCE_SOURCES.metadata}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Image metadata
+                </a>
+              </p>
+            </details>
+          </section>
+
           <section
             className={CARD}
             style={{ animationDelay: "60ms" }}
@@ -384,7 +483,7 @@ export default function App() {
               <button
                 type="button"
                 disabled={!target}
-                onClick={() => setTarget(null)}
+                onClick={() => setSelection(null)}
                 className={BUTTON}
               >
                 <Icon name="close" />
@@ -407,6 +506,13 @@ export default function App() {
             <p className={`mt-1 ${LABEL}`}>
               Direct estimate · Terrain not evaluated
             </p>
+            {target && (
+              <p id="target-identity" className={`mt-1 ${LABEL}`}>
+                {scienceSelected
+                  ? SCIENCE_SITE.name
+                  : "Free target · No science site associated"}
+              </p>
+            )}
             {!targetEvaluation && (
               <p className="mt-2 rounded-md border border-dashed border-slate-800 px-2.5 py-2 text-[11px] leading-relaxed text-slate-400">
                 Click or tap the map to place a target, or pan the map and use

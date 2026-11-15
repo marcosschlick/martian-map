@@ -9,6 +9,7 @@ import {
 } from "./evaModel.js";
 import { Icon, StatusDot } from "./HudKit.jsx";
 import { FLOATING_PANEL, LAYER_BUTTON } from "./hudStyles.js";
+import { SCIENCE_AREA_BOUNDS, SCIENCE_SITE } from "./scienceData.js";
 
 const VIKING_OPTICAL_TILE_URL =
   "https://trek.nasa.gov/tiles/Mars/EQ/Mars_Viking_MDIM21_ClrMosaic_global_232m/1.0.0//default/default028mm/{z}/{y}/{x}.jpg";
@@ -121,6 +122,46 @@ function watchTileCoverage(map, layer, report) {
   };
 }
 
+function frameMapBounds(map, geometryBounds, controlsElement, panelElement) {
+  map.invalidateSize({ pan: false });
+  const container = map.getContainer();
+  const bounds = container.getBoundingClientRect();
+  const controls = [
+    controlsElement,
+    container.querySelector(".leaflet-control-zoom"),
+  ];
+  const overlays = controls
+    .filter(Boolean)
+    .map((element) => element.getBoundingClientRect());
+  const belowControls =
+    Math.max(...overlays.map((overlay) => overlay.bottom)) - bounds.top + 12;
+  const besideControls =
+    Math.max(...overlays.map((overlay) => overlay.right)) - bounds.left + 12;
+  const panel = panelElement?.getBoundingClientRect();
+  const right =
+    panel && panel.top < bounds.bottom && panel.bottom > bounds.top
+      ? bounds.right - panel.left + 12
+      : 12;
+  const attribution = container.querySelector(".leaflet-control-attribution");
+  const bottom =
+    bounds.bottom -
+    (attribution?.getBoundingClientRect().top ?? bounds.bottom) +
+    12;
+  const room = (left, top) =>
+    Math.min(bounds.width - left - right, bounds.height - top - bottom);
+  const [left, top] =
+    room(12, belowControls) >= room(besideControls, 12)
+      ? [12, belowControls]
+      : [besideControls, 12];
+  if (room(left, top) <= 0) return;
+  map.fitBounds(geometryBounds, {
+    paddingTopLeft: [left, top],
+    paddingBottomRight: [right, bottom],
+    maxZoom: MAX_ZOOM,
+    animate: false,
+  });
+}
+
 export default function MarsMap({
   activeLayer = "optical",
   onLayerChange,
@@ -130,6 +171,7 @@ export default function MarsMap({
   target,
   targetTone,
   onTargetSelect,
+  onScienceSelect,
   ref,
 }) {
   const containerRef = useRef(null);
@@ -271,6 +313,31 @@ export default function MarsMap({
       .addTo(map)
       .bindTooltip("Habitat Base · Jezero Crater", { direction: "top" });
 
+    const scienceMarker = L.marker(SCIENCE_SITE.coordinate, {
+      title: `Select ${SCIENCE_SITE.name}`,
+      bubblingMouseEvents: false,
+      icon: L.divIcon({
+        className: "science-site-marker",
+        iconSize: [44, 44],
+        iconAnchor: [22, 22],
+        html: '<svg viewBox="0 0 44 44" aria-hidden="true"><path d="M22 7 37 22 22 37 7 22Z" fill="#020617" stroke="#06B6D4" stroke-width="2"/><circle cx="22" cy="22" r="3" fill="#06B6D4"/></svg>',
+      }),
+    }).bindTooltip(`${SCIENCE_SITE.name} · Project-selected site`);
+    scienceMarker.on("click", onScienceSelect);
+    scienceMarker.on("keydown", ({ originalEvent }) => {
+      if (originalEvent.key === "Enter" || originalEvent.key === " ") {
+        L.DomEvent.stop(originalEvent);
+        onScienceSelect();
+      }
+    });
+    const showScienceMarker = () => {
+      if (map.getZoom() >= 10) {
+        if (!map.hasLayer(scienceMarker)) scienceMarker.addTo(map);
+      } else if (map.hasLayer(scienceMarker)) map.removeLayer(scienceMarker);
+    };
+    map.on("zoomend", showScienceMarker);
+    showScienceMarker();
+
     mapRef.current = map;
     opticalLayerRef.current = opticalLayer;
     elevationLayerRef.current = elevationLayer;
@@ -319,7 +386,7 @@ export default function MarsMap({
       targetMarkerRef.current = null;
       directLineRef.current = null;
     };
-  }, [onTargetSelect]);
+  }, [onTargetSelect, onScienceSelect]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -365,53 +432,26 @@ export default function MarsMap({
         const coordinate = [lat, lng];
         if (isMarsCoordinate(coordinate)) onTargetSelect(coordinate);
       },
+      showScienceArea() {
+        const map = mapRef.current;
+        if (map)
+          frameMapBounds(
+            map,
+            L.latLngBounds(SCIENCE_AREA_BOUNDS),
+            mapControlsRef.current,
+            reservesPanelRef.current,
+          );
+      },
       showEnvelope() {
         const map = mapRef.current;
         const envelope = envelopeRef.current;
         if (!map || !envelope || !map.hasLayer(envelope)) return;
-        map.invalidateSize({ pan: false });
-        const container = map.getContainer();
-        const bounds = container.getBoundingClientRect();
-        const controls = [
+        frameMapBounds(
+          map,
+          envelope.getBounds(),
           mapControlsRef.current,
-          container.querySelector(".leaflet-control-zoom"),
-        ];
-        const overlays = controls
-          .filter(Boolean)
-          .map((element) => element.getBoundingClientRect());
-        const belowControls =
-          Math.max(...overlays.map((overlay) => overlay.bottom)) -
-          bounds.top +
-          12;
-        const besideControls =
-          Math.max(...overlays.map((overlay) => overlay.right)) -
-          bounds.left +
-          12;
-        const panel = reservesPanelRef.current?.getBoundingClientRect();
-        const right =
-          panel && panel.top < bounds.bottom && panel.bottom > bounds.top
-            ? bounds.right - panel.left + 12
-            : 12;
-        const attribution = container.querySelector(
-          ".leaflet-control-attribution",
+          reservesPanelRef.current,
         );
-        const bottom =
-          bounds.bottom -
-          (attribution?.getBoundingClientRect().top ?? bounds.bottom) +
-          12;
-        const room = (left, top) =>
-          Math.min(bounds.width - left - right, bounds.height - top - bottom);
-        const [left, top] =
-          room(12, belowControls) >= room(besideControls, 12)
-            ? [12, belowControls]
-            : [besideControls, 12];
-        if (room(left, top) <= 0) return;
-        map.fitBounds(envelope.getBounds(), {
-          paddingTopLeft: [left, top],
-          paddingBottomRight: [right, bottom],
-          maxZoom: MAX_ZOOM,
-          animate: false,
-        });
       },
     }),
     [reservesPanelRef, onTargetSelect],
