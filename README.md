@@ -8,8 +8,8 @@ Tactical hyperlocalized EVA navigation HUD for Mars surface exploration, built f
 
 - **Multi-Layer Mars Visualization:** Combines Viking optical imagery, MOLA elevation tiles and the historical CTX mosaic.
 - **Space Weather Context:** Shows NASA DONKI CME notifications with their original issue dates, source links and query availability. These are not local radiation measurements.
-- **Modeled EVA Return Envelope and Target:** Illustrates outward-and-return travel reach from simulated oxygen/battery budgets and evaluates a selected target's direct travel budget. Terrain, traversability and space weather remain unevaluated.
-- **Pressurized Glove Mode:** Toggles between detailed mission planning and an oversized, high-contrast interface designed for astronauts wearing pressurized spacesuit gloves.
+- **Modeled EVA Return Envelope and Target:** Illustrates outward-and-return travel reach from simulated oxygen/battery budgets and evaluates a selected target's direct travel budget. An optional radiation scenario adds a demo dose cap.
+- **Pressurized Glove Mode:** Use **Glove mode** in the header for 44 px controls, opaque panels, and high-contrast active and keyboard focus states. The toggle preserves the current map, target, and reserves.
 
 ## Tech Stack
 
@@ -25,11 +25,11 @@ Tactical hyperlocalized EVA navigation HUD for Mars surface exploration, built f
 git clone git@github.com:marcosschlick/martian-map.git
 cd martian-map
 npm install
-cp .env.example .env
+cp .env.example .env.local
 npm run dev
 ```
 
-Open `.env` and set `VITE_NASA_API_KEY` to your personal NASA API key (get a free key at [https://api.nasa.gov/](https://api.nasa.gov/)). An unset or empty value uses NASA's public demonstration credential, subject to its request limits. Credentials are supplied at runtime and are not included in query messages or source-page links.
+For local development, set `NASA_API_KEY` in the Git-ignored `.env.local` using a key from [NASA Open APIs](https://api.nasa.gov/) and restart Vite. Vite routes the DONKI query through its local proxy and adds the key as an [upstream `X-Api-Key` header](https://api.data.gov/docs/developer-manual/). Existing local `VITE_NASA_API_KEY` values also work through this proxy. With a blank key or the `DEMO_KEY` value, the browser uses NASA's public demonstration credential. The static production bundle also uses the public credential.
 
 ## CTX Detail imagery
 
@@ -63,7 +63,7 @@ All four modes share a display range of **Leaflet zoom 2–13**. Selecting CTX b
 
 ### Availability and limitations
 
-Viking remains underneath CTX as context. The HUD identifies loading, loaded and incomplete/unavailable imagery. CTX requests have a 15-second timeout, HTTP status checks, PNG signature/end-marker checks, image decoding and dimension checks. Failed tiles stay hidden to expose the context layer; if context also fails, the HUD reports that. Requests are cancelled on tile removal and StrictMode cleanup. There is no automatic retry loop or per-tile alert; revisiting an area or selecting the layer again can issue fresh requests.
+Viking remains underneath CTX as context. The HUD distinguishes loading, complete, incomplete and unavailable imagery using the tiles in the current viewport at the active layer's native zoom. Failed tiles retained outside the viewport do not affect its status. CTX requests have a 15-second timeout, HTTP status checks, PNG signature/end-marker checks, image decoding and dimension checks. Failed tiles stay hidden to expose the context layer; the HUD also reports when Viking is incomplete or unavailable. Requests are cancelled on tile removal and StrictMode cleanup. Revisiting an area or selecting the layer again can issue fresh requests.
 
 In Chromium, the damaged level-11 sample **passed `image.decode()` despite lacking the PNG IEND marker**. The additional container check rejects that response. This is an envelope check, not an exhaustive PNG CRC or scientific-quality validation. A complete, decodable tile can still contain mosaic gaps or registration errors. Cross-origin fetch permission is required by the integrity checks and was verified against the current provider.
 
@@ -84,7 +84,7 @@ The **Simplified model** panel and perimeter are an illustration, not an operati
 | Constant walking speed | 2,000 metres/hour (2 km/h) |
 | Protected reserve | 20% of each resource's **total** capacity |
 
-For simulated percentages `O` and `B` in 0–100:
+For simulated percentages `O` and `B` in 0–100 with **Radiation simulation** off:
 
 ```text
 oxygenBudgetMinutes = 240 * max(0, O - 20) / 100
@@ -93,7 +93,7 @@ excursionBudgetMinutes = min(oxygenBudgetMinutes, batteryBudgetMinutes)
 radiusMeters = excursionBudgetMinutes * (2000 / 60) / 2
 ```
 
-The 20% is subtracted as **20 percentage points of full capacity**, not 20% of the resource remaining. `Excursion budget` covers both travel directions; the factor of two allocates half to outward travel and half to return. `Estimated reach` is the corresponding one-way radius from the Habitat. `Limiting resource` identifies the smaller time budget, or `Both` for equal budgets. Reaching the protected reserve in either resource gives **zero excursion budget even though resources may remain**.
+The 20% is subtracted as **20 percentage points of full capacity**, not 20% of the resource remaining. `Excursion budget` covers both travel directions; the factor of two allocates half to outward travel and half to return. `Estimated reach` is the corresponding one-way radius from the Habitat. `Limiting factor` identifies the smallest time budget, or `Both` when oxygen and battery share the limit. Reaching the protected reserve in either suit resource gives **zero excursion budget even though resources may remain**.
 
 | Oxygen | Battery | Excursion budget | Radius | Limiting resource |
 | --- | --- | --- | --- | --- |
@@ -104,7 +104,7 @@ The 20% is subtracted as **20 percentage points of full capacity**, not 20% of t
 | 20% or less | Any | 0 min | 0 m | Oxygen, or Both if both budgets are zero |
 | Any | 20% or less | 0 min | 0 m | Battery, or Both if both budgets are zero |
 
-Budgets are derived in `src/evaModel.js` from the existing App state; they are not stored separately. Available budgets use green, a positive budget with either resource below 30% uses amber, and zero budget uses red with **No excursion budget**. The original individual reserve warnings remain independent. `Reset reserves` restores 100/100, 144 min and 2,400 m without changing the layer or view. Unrounded numbers drive geometry; the HUD formats numbers for readability.
+Budgets are derived in `src/evaModel.js` from App state. The HUD uses amber for low reserves or a positive budget reduced by the dose scenario, and red for zero budget. `Reset reserves` restores 100/100; with radiation off this gives 144 min and 2,400 m. Unrounded numbers drive geometry; the HUD formats numbers for readability.
 
 ### Mars geometry and map behavior
 
@@ -116,7 +116,7 @@ Only **Show envelope** fits the perimeter into the view. It measures the current
 
 Numeric verification covered all 10,201 integer Oxygen/Battery combinations. Their 121 distinct radii include zero; 11,520 generated vertices at the 120 positive radii had a maximum absolute spherical-distance error of **4.17 × 10⁻⁹ m** relative to their requested radius. This is floating-point consistency on the assumed sphere, not a claim about map registration, walking accuracy or physical suit performance.
 
-The model assumes constant walking speed and resource consumption, direct travel and no stops. It evaluates a selected target's direct displacement budget, but does not evaluate terrain, slopes, obstacles, radiation, science tasks or traversable routes. Real navigation and life-support decisions require information that this illustration does not provide.
+The model assumes constant walking speed and resource consumption, direct travel and no stops. It estimates the budget for a selected target's direct displacement. Terrain, obstacles, science stops, and actual exposure at Jezero require separate data.
 
 Interactive Chromium review covered the required numeric cases, reset, zero-budget removal, one persistent map instance, positive-budget geometry updates, and reserve preservation across all four imagery modes. Show envelope kept the perimeter clear of HUD panels at 1440 × 900, 768 × 1024, 390 × 844, 320 × 568 and 667 × 375; short landscape framing uses space beside the overlays. Keyboard activation and visible focus were checked for the controls, framing button and assumptions disclosure. Opening assumptions and reaching zero budget did not resize or move the mobile map. CTX fallback was checked with both the damaged service-level-11 images and a simulated HTTP 503. Physical devices, other browser engines and screen readers were not verified. No test files or testing frameworks were added.
 
@@ -124,7 +124,7 @@ Review captures: [full reserves](output/playwright/envelope-full.png), [reduced 
 
 ## EVA target direct budget estimate
 
-Click or tap the map to select one target; another selection replaces it. **Use map center** selects the current center without moving the view: focus the map, pan with its arrow keys and activate the button using Tab and Enter/Space. **Clear target** removes only the target, its reference line, tooltip and evaluation. Reserve edits, Reset reserves, imagery changes and Show envelope retain the selected target. Clicking HUD/Leaflet controls or dragging the map does not select a target. Selecting a point or changing reserves does not recenter or zoom the map.
+Click or tap inside the mapped globe to select one target and see its coordinates. Another valid selection replaces it. **Use map center** selects the current center without moving the view: focus the map, pan with its arrow keys and activate the button using Tab and Enter/Space. **Clear target** removes the target, its reference line, tooltip and evaluation. Reserve edits, Reset reserves, imagery changes and Show envelope retain the selected target. The map constrains panning to Mars, and clicks outside the globe, on HUD/Leaflet controls, or during dragging leave the target alone.
 
 App owns the selected coordinate alongside the simulated reserves. `evaluateTarget` in `src/evaModel.js` derives the estimate using the existing haversine distance and the same **3,396,190 m Mars sphere** as the perimeter:
 
@@ -154,25 +154,49 @@ The target color applies to one pixel-sized marker and a dashed **Direct estimat
 | 100% / 100% | 3,000 m | 180 min | -36 min | Exceeds modeled budget |
 | Either resource at 20% or below | Target retained | Depends on distance | Zero budget minus round-trip time | No excursion budget |
 
-The reference line connects the two coordinates in the map projection; distance is computed separately on the Mars sphere. It is **not a navigable route**, terrain survey or guarantee of return. The calculation retains the same illustrative capacities, 20 percentage-point protected reserve, constant 2 km/h speed/consumption and no-stop assumptions. Space-weather notifications are separate contextual data; terrain, slopes, obstacles, science objectives, notification interpretation and glove mode remain outside this travel-budget calculation.
+The reference line connects the two coordinates in the map projection and splits at the antimeridian when the shorter longitudinal span crosses it. Distance is computed separately on the Mars sphere. The illustrative calculation uses the same capacities, 20 percentage-point protected reserve, constant 2 km/h speed and consumption, and direct travel without stops. Terrain, obstacles, science objectives and measured radiation would require separate datasets and analysis.
 
 Numeric checks generated target coordinates with the existing Mars envelope geometry for 1,800, 2,400 and 3,000 m. Additional checks covered distances 0.009 m and 0.011 m on either side of the limit, low reserves, null selection and zero budget at the Habitat. Interactive Chromium checks covered click/touch selection, replacement, clear, keyboard center selection and focus, unchanged view on selection/reserve edits, persistence across reset/framing/pan/zoom and the four imagery modes, and a simulated CTX HTTP 503 fallback. Marker/line counts remained one when selected and zero after clearing. Layouts were reviewed at 1440 × 900, 768 × 1024, 390 × 844, 320 × 568 and 667 × 375, including a touch-enabled browser context. Small panels scroll internally. These checks do not verify physical devices, screen readers, other browser engines or real terrain suitability.
 
 Review captures: [within budget](output/playwright/target-within.png), [budget exceeded with the same target](output/playwright/target-exceeded.png), [zero budget with target retained](output/playwright/target-zero.png). Browser clicks select map coordinates at display-pixel precision; the numeric reference cases above use generated spherical coordinates before display rounding.
 
+## Radiation dose simulation
+
+Open **Radiation simulation** under **Simplified model**. The app starts at **Off**. **Low rate** and **High rate** apply a constant demo rate of **0.10 mSv/h** or **0.50 mSv/h** for the entire round trip. The initial remaining allowance is **0.30 mSv**. The slider adjusts it between **0 and 0.30 mSv** in **0.01 mSv** steps. The rates and allowance are illustrative inputs. Operational exposure assessment depends on the mission environment and shielding. [NASA Space Radiation Analysis Group](https://srag.jsc.nasa.gov/spaceradiation/how/how.cfm)
+
+```text
+doseBudgetMinutes = 60 * remainingDose / doseRatePerHour
+excursionBudgetMinutes = min(oxygenBudgetMinutes, batteryBudgetMinutes, doseBudgetMinutes)
+simulatedTargetDose = doseRatePerHour * roundTripMinutes / 60
+doseMargin = remainingDose - simulatedTargetDose
+```
+
+The model stores dose inputs in µSv and displays mSv. At full suit reserves and 0.30 mSv remaining, **Low rate** caps the dose budget at 180 min and battery still limits the trip to 144 min and 2.4 km. **High rate** caps the trip at 36 min and 600 m. A zero allowance removes the circle and retains the target. Selecting a scenario recalculates the circle and the target's time and dose margins in place. Selecting **Off** restores the suit-only calculation, and reactivating a scenario reuses the last allowance. DONKI data supplies event context separately from this calculation. [NASA DONKI](https://ccmc.gsfc.nasa.gov/tools/DONKI/)
+
+### Try it with one target
+
+1. Click **Reset reserves** and set **Radiation simulation** to **Off**. Use **Show envelope** and select a point about 1 km from the habitat.
+2. Switch to **High rate** with **Remaining demo dose** at 0.30 mSv. Keep the same target and compare **Time margin** and **Demo dose margin**.
+
+At exactly 1 km, the modeled round trip takes 60 min. The target moves from **Within modeled budget** with 84 min to spare to **Exceeds modeled budget** by 24 min. The high-rate trip uses 0.50 mSv of the simulated allowance, leaving a dose margin of −0.20 mSv.
+
+Numeric verification covered 642,663 combinations of integer suit reserves, rate presets, and selectable dose allowances. The checks included a depleted allowance and ties between limiting factors.
+
 ## DONKI notifications and historical fallback
 
-The **Space weather** card provides notification context only: **Solar event context · Mars surface radiation not evaluated.** It does not assign a dose, a danger level in Jezero, or a numerical modifier to either the return envelope or target evaluation. A CME's presence, speed or mention of Mars is insufficient for that purpose. Empty results and unavailable queries do not establish local radiation conditions. Interpretation and any future modifier require a documented Mars-relevant model or an explicitly identified simulation.
+The **Space weather** card displays NASA notices about coronal mass ejections (CMEs) as context for the EVA planning demo. Assessing radiation at Jezero or applying a modifier to the return model would require a documented Mars-relevant model or an explicitly identified simulation.
 
 Official references: [DONKI overview](https://ccmc.gsfc.nasa.gov/tools/DONKI/), [API documentation](https://ccmc.gsfc.nasa.gov/DONKI/api/), [notification guide](https://ccmc.gsfc.nasa.gov/DONKI/guide/notifications/).
 
+The HUD header highlights the latest CME notice in the queried period with its original UTC issue time. Amber draws attention to a published notice. The same control shows when the query is loading, returned no notices, or is unavailable. Selecting it opens the **Space weather** section with the query period and links to the original NASA messages.
+
 ### Query and lifecycle
 
-Endpoint: `https://api.nasa.gov/DONKI/notifications`. The application sends `type=CME` and explicit `startDate`/`endDate` parameters. Each query computes the last **seven UTC calendar dates including today**, so on 2026-11-15 the period is 2026-11-09 through 2026-11-15. This is a calendar-date interval, not a rolling 168-hour window. The configured Vite NASA credential is used, with the public demonstration credential as a fallback; request URLs and credentials are never included in displayed error messages.
+Endpoint: `https://api.nasa.gov/DONKI/notifications`. The application sends `type=CME` and explicit `startDate`/`endDate` parameters. Each query computes the last **seven UTC calendar dates including today**, so on 2026-11-15 the period is 2026-11-09 through 2026-11-15. The local Vite proxy supplies the configured personal key. Direct browser requests use `DEMO_KEY`. Displayed errors contain controlled status text.
 
-The component queries once at startup and only again through **Refresh**. Reserve edits, target changes, imagery switches, pan and zoom do not trigger a query. A synchronous active-request guard and disabled Refresh prevent concurrent requests. The initial request is scheduled for the next task so StrictMode cleanup cancels its probe before it reaches the network. Cleanup cancels both a pending start and the active request; mounted/identity guards ignore obsolete completion. There is no retry loop, polling or midnight refresh. A later manual Refresh recalculates its UTC period.
+The badge and detail section share one query at startup and on **Refresh**. A synchronous guard prevents concurrent requests. During loading, **Refresh** is unavailable but retains keyboard focus. The initial request is scheduled for the next task so StrictMode cleanup cancels its probe before it reaches the network. Cleanup cancels both a pending start and the active request; mounted/identity guards ignore obsolete completion. Each manual refresh recalculates its UTC period.
 
-Requests have a **12-second timeout** covering fetch/body reading. HTTP status, JSON parsing and notification structure are checked separately. Network failure, HTTP 429, other HTTP errors, invalid JSON and unexpected contents produce a clearly identified historical fallback. Errors contain controlled explanations, not native fetch messages or credential-bearing URLs. A valid `[]` is preserved as **No CME notifications in queried period**, without substituting the historical example. Loading hides previous results rather than relabeling stale contents as current.
+Requests have a **12-second timeout** covering fetch and body reading. HTTP errors, invalid JSON, a malformed response, or a nonempty response with zero valid entries produce a clearly identified historical fallback. If at least one entry is valid, the panel shows the valid notices and the number of omitted entries. A valid `[]` displays **No CME notifications in queried period**. Loading clears the previous results and errors use controlled messages.
 
 ### Fields and provenance
 
@@ -187,6 +211,8 @@ The first live verification on 2026-11-15 returned HTTP 200 and four CME notific
 The card lives inside the existing scrollable HUD panel. Its entire visible rectangle is already included by **Show envelope** when calculating padding; no extra map overlay is introduced. The map, modeled budgets and destination calculations remain independent of the notification component.
 
 ### Verification and review captures
+
+After Vite restarted with a personal NASA key, a live request through the local `/api/donki/notifications` proxy returned HTTP 200 and five CME notices. The normalized result selected the three newest notices for display.
 
 Interactive Chromium checks covered the real NASA response and intercepted responses for valid empty results, HTTP 429/503, invalid JSON, unexpected structure, a network failure and a response delayed beyond the 12-second timeout. Manual Refresh recovered after failures; repeated activation while loading produced one request, and a late response did not overwrite the recovery. Duplicate records were normalized and HTML-like message contents stayed literal text. Startup produced one request under React StrictMode. UTC date calculations were checked across month/year boundaries and leap day.
 

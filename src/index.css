@@ -16,10 +16,71 @@ body,
   color: #f8fafc;
 }
 
+@media (min-width: 48rem), (min-width: 40rem) and (orientation: landscape) {
+  .mission-panel {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    width: min(18rem, 42%);
+    height: auto;
+    max-height: calc(100% - 1.5rem);
+    border-width: 1px;
+    border-radius: 0.5rem;
+  }
+}
+
+[data-glove-mode] .hud-panel {
+  color: #f8fafc;
+  background-color: #020617;
+  border-color: #94a3b8;
+  backdrop-filter: none;
+}
+
+[data-glove-mode] .hud-control {
+  min-height: 44px;
+  padding-inline: 0.75rem;
+  color: #f8fafc;
+  font-size: 0.875rem;
+  border-color: #94a3b8;
+}
+
+[data-glove-mode] .hud-control[aria-pressed="true"] {
+  color: #020617;
+  background-color: #22d3ee;
+}
+
+[data-glove-mode] .hud-control[data-solar-notice] {
+  color: #f59e0b;
+  border-color: #f59e0b;
+}
+
+[data-glove-mode] .hud-control:disabled,
+[data-glove-mode] .hud-control[aria-disabled="true"] {
+  color: #94a3b8;
+}
+
+[data-glove-mode] .hud-control:focus-visible {
+  outline-color: #facc15;
+}
+
+[data-glove-mode] summary.hud-control {
+  padding-block: 0.75rem;
+  padding-inline: 0;
+}
+
+[data-glove-mode] input[type="range"] {
+  height: 44px;
+}
+
 /* Tactical HUD overrides for Leaflet controls */
 .leaflet-container {
   background-color: #020617;
   font-family: inherit;
+}
+
+.leaflet-container:focus-visible {
+  outline: 2px solid #06b6d4;
+  outline-offset: -2px;
 }
 
 .leaflet-bar {
@@ -47,6 +108,13 @@ body,
 
 .leaflet-bar a:last-child {
   border-bottom: none !important;
+}
+
+[data-glove-mode] .leaflet-bar a {
+  width: 44px !important;
+  height: 44px !important;
+  line-height: 42px !important;
+  font-size: 1.25rem;
 }
 
 @media (hover: hover) and (pointer: fine) {

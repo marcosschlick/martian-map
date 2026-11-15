@@ -11,7 +11,7 @@ Global Mars maps and orbital viewers lack hyperlocalized, real-time Extravehicul
 A hyperlocalized tactical EVA navigation HUD centered on **Jezero Crater** (`18.38° N, 77.58° E`), built around three core pillars:
 
 1. **Multi-Layer NASA Data:** Combines Viking optical imagery and MOLA colorized topography/elevation from NASA Mars Trek WMTS with contextual CME notifications from NASA DONKI. Notifications do not measure local Mars surface radiation.
-2. **Point of No Return (Autonomy Circle):** Renders an illustrative return envelope from simulated suit oxygen/battery budgets and evaluates direct target travel against that budget. Space-weather notifications do not change the model or certify terrain traversability.
+2. **Point of No Return (Autonomy Circle):** Renders an illustrative return envelope from simulated suit budgets and an optional dose allowance, then evaluates direct target travel against the smallest time budget. DONKI supplies separate event context.
 3. **Pressurized Glove Mode:** A one-click HUD mode that switches from standard mission planning to a high-contrast, oversized-button layout engineered for astronauts operating in stiff pressurized spacesuit gloves.
 
 ---
@@ -21,7 +21,7 @@ A hyperlocalized tactical EVA navigation HUD centered on **Jezero Crater** (`18.
 ### Phase 1: Project Setup & Base HUD
 - [x] **Vite + React + Tailwind v4 + Leaflet Setup:** Installed `tailwindcss`, `@tailwindcss/vite`, and `leaflet`; configured Tailwind v4 in `vite.config.js` and imported Tailwind + Leaflet CSS in `src/index.css`.
 - [x] **ESLint & Prettier Config:** Installed `prettier` and `eslint-config-prettier`, integrated `eslint-config-prettier/flat` in `eslint.config.js`, and added the `format` script in `package.json`.
-- [x] **Environment Template:** Created `.env.example` and `.env` with `VITE_NASA_API_KEY=DEMO_KEY` and verified `.env` is ignored in `.gitignore`.
+- [x] **Environment Template:** Document the optional server-side `NASA_API_KEY` in `.env.example` and use an ignored `.env.local` for the local key. The static build uses `DEMO_KEY`.
 - [x] **Tuxonauts Branding:** Placed `/astrotux.png` in `public/`, configured the favicon and page title in `index.html`, and removed unused Vite template boilerplate.
 - [x] **Full-Viewport Tactical HUD Shell:** Configured full-screen `html, body, #root` layout in `src/index.css` and built the compact dark space-themed header and map placeholder in `src/App.jsx`.
 
@@ -41,10 +41,10 @@ A hyperlocalized tactical EVA navigation HUD centered on **Jezero Crater** (`18.
 
 ### Phase 4: Space Weather Integration (NASA DONKI)
 - [x] **DONKI API Fetch & Fallback:** Query CME notifications for seven UTC calendar days on startup/manual Refresh, validate and normalize responses, and distinguish NASA results, valid empty results and an original-dated Historical demo fallback with provenance and bounded request handling.
-- [ ] **Solar Storm Alert Badge:** Future interpreted notification display; do not present CME messages as measurements of local Jezero radiation.
-- [ ] **Radiation Autonomy Penalty:** Requires a documented Mars-relevant model or an explicitly identified simulation before any numerical modifier can be introduced. CME presence, speed or a mention of Mars is not sufficient.
+- [x] **Solar Storm Alert Badge:** Highlight the latest NASA CME notification and its original UTC issue time in the HUD. Link to weather details and show distinct loading, empty, and unavailable states. Local radiation remains unevaluated.
+- [x] **Radiation Autonomy Penalty:** Offer an opt-in simulation with constant dose-rate presets and an adjustable demo allowance. Apply the resulting time cap to the EVA envelope and target, expose simulated dose and margins, and keep DONKI notifications independent.
 
 ### Phase 5: Pressurized Glove Mode & Final Polish
-- [ ] **Pressurized Glove Mode Toggle:** Implement a one-click HUD mode switch that enlarges interactive controls to oversized touch targets and boosts visual contrast for stiff spacesuit gloves.
-- [ ] **Responsive Layout Verification:** Verify full-viewport rendering without unintended scrollbars across desktop and tablet screen sizes.
-- [ ] **Final Build & Quality Check:** Run `npm run format`, `npm run lint`, and `npm run build` to ensure a clean production bundle ready for deployment.
+- [x] **Pressurized Glove Mode Toggle:** Add an accessible HUD toggle with 44 px controls, opaque panels, and high-contrast active and focus states.
+- [x] **Responsive Layout Verification:** Verify the HUD and return envelope across desktop, tablet, portrait phone, and short landscape viewports in Chromium.
+- [x] **Final Build & Quality Check:** Verify formatting, lint, the production build, and the application logo under a nested deploy path.
