@@ -4,6 +4,9 @@ import L from "leaflet";
 const JEZERO_CRATER_COORDS = [18.38, 77.58];
 const VIKING_OPTICAL_TILE_URL =
   "https://trek.nasa.gov/tiles/Mars/EQ/Mars_Viking_MDIM21_ClrMosaic_global_232m/1.0.0//default/default028mm/{z}/{y}/{x}.jpg";
+const MOLA_ELEVATION_TILE_URL =
+  "https://trek.nasa.gov/tiles/Mars/EQ/Mars_MGS_MOLA_ClrShade_merge_global_463m/1.0.0//default/default028mm/{z}/{y}/{x}.jpg";
+const MARS_TREK_ATTRIBUTION = "NASA / JPL / USGS Mars Trek";
 
 const HABITAT_ICON = L.divIcon({
   className: "",
@@ -18,8 +21,11 @@ const HABITAT_ICON = L.divIcon({
   </svg>`,
 });
 
-export default function MarsMap() {
+export default function MarsMap({ activeLayer = "optical" }) {
   const containerRef = useRef(null);
+  const mapRef = useRef(null);
+  const opticalLayerRef = useRef(null);
+  const elevationLayerRef = useRef(null);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -33,20 +39,59 @@ export default function MarsMap() {
       maxZoom: 8,
     });
 
-    L.tileLayer(VIKING_OPTICAL_TILE_URL, {
+    const opticalLayer = L.tileLayer(VIKING_OPTICAL_TILE_URL, {
       maxNativeZoom: 7,
       maxZoom: 8,
-      attribution: "NASA / JPL / USGS Mars Trek",
-    }).addTo(map);
+      attribution: MARS_TREK_ATTRIBUTION,
+    });
+
+    const elevationLayer = L.tileLayer(MOLA_ELEVATION_TILE_URL, {
+      maxNativeZoom: 6,
+      maxZoom: 8,
+      attribution: MARS_TREK_ATTRIBUTION,
+    });
 
     L.marker(JEZERO_CRATER_COORDS, { icon: HABITAT_ICON })
       .addTo(map)
       .bindTooltip("Habitat Base · Jezero Crater", { direction: "top" });
 
+    mapRef.current = map;
+    opticalLayerRef.current = opticalLayer;
+    elevationLayerRef.current = elevationLayer;
+
     return () => {
       map.remove();
+      mapRef.current = null;
+      opticalLayerRef.current = null;
+      elevationLayerRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const opticalLayer = opticalLayerRef.current;
+    const elevationLayer = elevationLayerRef.current;
+    if (!map || !opticalLayer || !elevationLayer) return;
+
+    const showOptical = activeLayer === "optical" || activeLayer === "blended";
+    const showElevation =
+      activeLayer === "elevation" || activeLayer === "blended";
+
+    if (showOptical) {
+      opticalLayer.setOpacity(1);
+      if (!map.hasLayer(opticalLayer)) opticalLayer.addTo(map);
+    } else if (map.hasLayer(opticalLayer)) {
+      map.removeLayer(opticalLayer);
+    }
+
+    if (showElevation) {
+      elevationLayer.setOpacity(activeLayer === "blended" ? 0.55 : 1);
+      if (!map.hasLayer(elevationLayer)) elevationLayer.addTo(map);
+      elevationLayer.bringToFront();
+    } else if (map.hasLayer(elevationLayer)) {
+      map.removeLayer(elevationLayer);
+    }
+  }, [activeLayer]);
 
   return <div ref={containerRef} className="h-full w-full bg-slate-950" />;
 }
