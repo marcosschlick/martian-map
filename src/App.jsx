@@ -5,6 +5,7 @@ const LAYER_OPTIONS = [
   { id: "optical", label: "OPTICAL" },
   { id: "elevation", label: "ELEVATION" },
   { id: "blended", label: "BLENDED" },
+  { id: "ctx", label: "CTX Detail" },
 ];
 
 const RESERVE_OPTIONS = [
@@ -40,7 +41,7 @@ export default function App() {
           <div
             role="group"
             aria-label="Map data layer"
-            className="absolute top-2.5 left-14 z-[1000] flex max-w-[calc(100vw-4.25rem)] items-center gap-1 rounded-lg border border-slate-800 bg-slate-950/90 p-1 backdrop-blur-sm"
+            className="absolute top-2.5 left-14 z-[1000] grid max-w-[calc(100vw-4.25rem)] grid-cols-2 items-center gap-1 rounded-lg border border-slate-800 bg-slate-950/90 p-1 backdrop-blur-sm sm:flex"
           >
             {LAYER_OPTIONS.map(({ id, label }) => {
               const isActive = activeLayer === id;

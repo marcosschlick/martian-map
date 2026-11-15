@@ -31,6 +31,7 @@ A hyperlocalized tactical EVA navigation HUD centered on **Jezero Crater** (`18.
 - [x] **NASA Mars Trek MOLA Elevation Layer:** Add the global 463m MOLA colorized shaded relief WMTS tile layer for topography visualization.
 - [x] **Habitat Base Marker:** Place a distinct Habitat Base marker with tactical styling/inline SVG icon at the Jezero Crater landing site.
 - [x] **Floating HUD Layer Switcher:** Build a floating overlay control (`z-[1000]+`) to toggle between Optical, Elevation, and blended layer views.
+- [x] **CTX Detailed Imagery:** Add historical CTX orbital imagery for Jezero with verified tile geometry and zoom limits, source/loading states, corruption handling, Viking context fallback, and responsive browser verification.
 
 ### Phase 3: Point of No Return & EVA Waypoint Engine
 - [x] **Suit Telemetry Controls:** Add interactive suit oxygen and battery reserve sliders in the tactical HUD.

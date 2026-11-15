@@ -67,7 +67,12 @@ body,
   cursor: not-allowed;
 }
 
+.leaflet-bottom.leaflet-right {
+  max-width: 100%;
+}
+
 .leaflet-control-attribution {
+  max-width: 100%;
   background-color: rgba(2, 6, 23, 0.9) !important;
   backdrop-filter: blur(4px);
   color: #94a3b8 !important;
