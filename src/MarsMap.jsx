@@ -10,14 +10,15 @@ const MARS_TREK_ATTRIBUTION = "NASA / JPL / USGS Mars Trek";
 
 const HABITAT_ICON = L.divIcon({
   className: "",
-  iconSize: [32, 32],
-  iconAnchor: [16, 16],
-  tooltipAnchor: [0, -16],
-  html: `<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Habitat Base">
-    <circle cx="16" cy="16" r="13" fill="#020617" fill-opacity="0.85" stroke="#06B6D4" stroke-width="2" />
-    <path d="M16 1v5M16 26v5M1 16h5M26 16h5" stroke="#06B6D4" stroke-width="1.5" stroke-linecap="round" />
-    <path d="M10.5 20v-4a5.5 5.5 0 0 1 11 0v4H10.5Z" fill="#06B6D4" />
-    <circle cx="16" cy="16" r="1.75" fill="#020617" />
+  iconSize: [44, 44],
+  iconAnchor: [22, 22],
+  tooltipAnchor: [0, -18],
+  html: `<svg width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Habitat Base">
+    <circle class="habitat-pulse-ring" cx="22" cy="22" r="13" stroke="#06B6D4" stroke-width="1.5" fill="none" />
+    <circle cx="22" cy="22" r="13" fill="#020617" fill-opacity="0.9" stroke="#06B6D4" stroke-width="2" />
+    <path d="M22 7v5M22 32v5M7 22h5M32 22h5" stroke="#06B6D4" stroke-width="1.5" stroke-linecap="round" />
+    <path d="M16.5 26v-4a5.5 5.5 0 0 1 11 0v4h-11Z" fill="#06B6D4" />
+    <circle cx="22" cy="22" r="1.75" fill="#020617" />
   </svg>`,
 });
 
