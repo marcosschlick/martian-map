@@ -3,7 +3,11 @@ export default function App() {
     <div className="flex h-screen w-screen flex-col bg-slate-950 text-slate-100">
       <header className="flex items-center justify-between border-b border-slate-800 bg-slate-900/90 px-4 py-3">
         <div className="flex items-center gap-3">
-          <span className="h-2.5 w-2.5 rounded-full bg-orange-500" />
+          <img
+            src="/astrotux.png"
+            alt="Tuxonauts"
+            className="h-7 w-7 rounded-full object-contain"
+          />
           <h1 className="text-sm font-bold tracking-wider uppercase">
             Martian Map — Tuxonauts
           </h1>
