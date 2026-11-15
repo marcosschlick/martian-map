@@ -23,6 +23,7 @@ We are building a hyperlocalized tactical HUD for astronauts on Mars surface wal
 - **API Resilience:** Always wrap NASA API calls in `try/catch` with realistic static fallback data so the app never breaks if `DEMO_KEY` hits rate limits.
 - **Map CRS:** Initialize Leaflet with `crs: L.CRS.EPSG4326` to match Mars Trek WMTS tiles.
 - **Language:** All UI text, code, comments, and commits must be in English.
+- **Formatting & Linting:** Always run `npm run format` and `npm run lint` after every code modification and fix any issues before finishing.
 
 ## Git Commit Convention
 - Use **Conventional Commits** in English.
