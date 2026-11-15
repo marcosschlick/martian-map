@@ -4,7 +4,7 @@
 **Martian Map** by **Tuxonauts** — built for the 2026 NASA Space Apps Challenge (*Interplanetary Survival Guide: Martian Map*).
 
 We are building a hyperlocalized tactical HUD for astronauts on Mars surface walks (EVAs) in Jezero Crater. The core concept combines NASA optical imagery, topography/elevation, and space-weather notifications as context, with two human-centric planning mechanics. DONKI notifications are not measurements of Mars surface radiation:
-1. **Point of No Return (Autonomy Circle):** An illustrative return envelope around the Habitat calculated from simulated suit oxygen/battery budgets. Space-weather context does not modify this model. Terrain evaluation remains pending; any future radiation modifier requires a documented Mars-relevant model or an explicitly identified simulation.
+1. **Point of No Return (Autonomy Circle):** An illustrative return envelope around the Habitat calculated from simulated suit oxygen/battery budgets and an optional, explicitly labeled radiation dose simulation. DONKI provides space-weather context independently. Terrain and local exposure require additional data.
 2. **Pressurized Glove Mode:** A UI toggle that switches from mission planning mode to a high-contrast, oversized-button layout designed for astronauts wearing stiff pressurized gloves.
 
 ## Tech Stack & Dependencies
@@ -20,7 +20,7 @@ We are building a hyperlocalized tactical HUD for astronauts on Mars surface wal
 - **KISS (Keep It Simple, Stupid):** Write the simplest, cleanest code possible. Keep logic concentrated in a few files (`App.jsx`, `MarsMap.jsx`). Avoid unnecessary abstractions.
 - **DRY (Don't Repeat Yourself):** Reuse helper functions, constants (like NASA URLs, coordinates, and risk thresholds), and UI styles instead of duplicating logic across components.
 - **Zero Tests:** Do not write unit, integration, or E2E tests. Do not install testing frameworks.
-- **API Resilience:** Always wrap NASA API calls in `try/catch` with realistic static fallback data so the app never breaks if `DEMO_KEY` hits rate limits. Use `import.meta.env.VITE_NASA_API_KEY || 'DEMO_KEY'` for NASA API calls.
+- **API Resilience:** Wrap NASA API calls in `try/catch` and provide a clearly labeled historical fallback. The local Vite proxy forwards `NASA_API_KEY` server-side when configured. The browser uses NASA's public `DEMO_KEY` for direct requests.
 - **Map CRS:** Initialize Leaflet with `crs: L.CRS.EPSG4326` to match Mars Trek WMTS tiles.
 - **Language:** All UI text, code, comments, and commits must be in English.
 - **Formatting & Linting:** Always run `npm run format` and `npm run lint` after every code modification and fix any issues before finishing.

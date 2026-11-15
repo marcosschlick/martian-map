@@ -1,4 +1,8 @@
 export const JEZERO_CRATER_COORDS = [18.38, 77.58];
+export const MARS_BOUNDS = [
+  [-90, -180],
+  [90, 180],
+];
 // GCS_Mars_2000_Sphere, verified against the CTX provider's WKT.
 export const MARS_RADIUS_METERS = 3396190;
 export const RESERVE_WARNING_PERCENT = 30;
@@ -12,7 +16,35 @@ export const MODEL_ASSUMPTIONS = {
   envelopeVertices: 96,
 };
 
-export function calculateExcursion({ oxygen, battery }) {
+export const RADIATION_SIMULATION = {
+  maxRemainingDoseMicroSv: 300,
+  doseStepMicroSv: 10,
+  doseRatesMicroSvPerHour: { low: 100, high: 500 },
+};
+
+function calculateRadiationBudget(scenario, remainingDoseMicroSv) {
+  const { doseRatesMicroSvPerHour, maxRemainingDoseMicroSv } =
+    RADIATION_SIMULATION;
+  if (!Object.hasOwn(doseRatesMicroSvPerHour, scenario)) return null;
+
+  const doseRateMicroSvPerHour = doseRatesMicroSvPerHour[scenario];
+  const availableDose = Number.isFinite(remainingDoseMicroSv)
+    ? Math.min(maxRemainingDoseMicroSv, Math.max(0, remainingDoseMicroSv))
+    : 0;
+  return {
+    doseRateMicroSvPerHour,
+    remainingDoseMicroSv: availableDose,
+    budgetMinutes: (60 * availableDose) / doseRateMicroSvPerHour,
+  };
+}
+
+export function calculateExcursion(
+  { oxygen, battery },
+  {
+    scenario = "off",
+    remainingDoseMicroSv = RADIATION_SIMULATION.maxRemainingDoseMicroSv,
+  } = {},
+) {
   const {
     oxygenCapacityMinutes,
     batteryCapacityMinutes,
@@ -25,25 +57,32 @@ export function calculateExcursion({ oxygen, battery }) {
   const batteryBudgetMinutes =
     (batteryCapacityMinutes * Math.max(0, battery - protectedReservePercent)) /
     100;
-  const excursionBudgetMinutes = Math.min(
-    oxygenBudgetMinutes,
-    batteryBudgetMinutes,
-  );
+  const suitBudgetMinutes = Math.min(oxygenBudgetMinutes, batteryBudgetMinutes);
+  const doseBudget = calculateRadiationBudget(scenario, remainingDoseMicroSv);
+  const budgets = {
+    Oxygen: oxygenBudgetMinutes,
+    Battery: batteryBudgetMinutes,
+  };
+  if (doseBudget) budgets.Radiation = doseBudget.budgetMinutes;
+
+  const excursionBudgetMinutes = Math.min(...Object.values(budgets));
+  const limitingResource = Object.keys(budgets)
+    .filter((resource) => budgets[resource] === excursionBudgetMinutes)
+    .join(" + ");
+  const timeReductionMinutes = suitBudgetMinutes - excursionBudgetMinutes;
   return {
     oxygenBudgetMinutes,
     batteryBudgetMinutes,
     excursionBudgetMinutes,
     radiusMeters: (excursionBudgetMinutes * (walkingMetersPerHour / 60)) / 2,
     limitingResource:
-      oxygenBudgetMinutes === batteryBudgetMinutes
-        ? "Both"
-        : oxygenBudgetMinutes < batteryBudgetMinutes
-          ? "Oxygen"
-          : "Battery",
+      limitingResource === "Oxygen + Battery" ? "Both" : limitingResource,
+    radiation: doseBudget && { ...doseBudget, timeReductionMinutes },
     status:
       excursionBudgetMinutes === 0
         ? "empty"
-        : Math.min(oxygen, battery) < RESERVE_WARNING_PERCENT
+        : timeReductionMinutes > 0 ||
+            Math.min(oxygen, battery) < RESERVE_WARNING_PERCENT
           ? "warning"
           : "available",
   };
@@ -51,6 +90,38 @@ export function calculateExcursion({ oxygen, battery }) {
 
 const radians = (degrees) => (degrees * Math.PI) / 180;
 const degrees = (angle) => (angle * 180) / Math.PI;
+
+export function isMarsCoordinate(coordinate) {
+  if (!Array.isArray(coordinate) || coordinate.length !== 2) return false;
+  const [latitude, longitude] = coordinate;
+  const [[south, west], [north, east]] = MARS_BOUNDS;
+  return (
+    Number.isFinite(latitude) &&
+    latitude >= south &&
+    latitude <= north &&
+    Number.isFinite(longitude) &&
+    longitude >= west &&
+    longitude <= east
+  );
+}
+
+export function createDirectReference(target) {
+  const [latitude, longitude] = JEZERO_CRATER_COORDS;
+  const [targetLatitude, targetLongitude] = target;
+  const longitudeDelta = targetLongitude - longitude;
+  if (Math.abs(longitudeDelta) <= 180) return [JEZERO_CRATER_COORDS, target];
+
+  const direction = -Math.sign(longitudeDelta);
+  const edge = 180 * direction;
+  const wrappedDelta = longitudeDelta + 360 * direction;
+  const edgeLatitude =
+    latitude +
+    ((edge - longitude) / wrappedDelta) * (targetLatitude - latitude);
+  return [
+    [JEZERO_CRATER_COORDS, [edgeLatitude, edge]],
+    [[edgeLatitude, -edge], target],
+  ];
+}
 
 export function createEnvelope(radiusMeters, center = JEZERO_CRATER_COORDS) {
   if (radiusMeters <= 0) return [];
@@ -98,11 +169,15 @@ export function marsDistanceMeters(from, to) {
 }
 
 export function evaluateTarget(target, excursion) {
-  if (!target) return null;
+  if (!isMarsCoordinate(target)) return null;
   const distanceMeters = marsDistanceMeters(JEZERO_CRATER_COORDS, target);
   const roundTripMinutes =
     (2 * distanceMeters) / (MODEL_ASSUMPTIONS.walkingMetersPerHour / 60);
   const timeMarginMinutes = excursion.excursionBudgetMinutes - roundTripMinutes;
+  const doseBudget = excursion.radiation;
+  const estimatedDoseMicroSv = doseBudget
+    ? (doseBudget.doseRateMicroSvPerHour * roundTripMinutes) / 60
+    : 0;
   const state =
     excursion.excursionBudgetMinutes === 0
       ? "empty"
@@ -122,6 +197,13 @@ export function evaluateTarget(target, excursion) {
     distanceMeters,
     roundTripMinutes,
     timeMarginMinutes,
+    radiation: doseBudget
+      ? {
+          estimatedDoseMicroSv,
+          doseMarginMicroSv:
+            doseBudget.remainingDoseMicroSv - estimatedDoseMicroSv,
+        }
+      : null,
     state,
     label: labels[state],
     tone:

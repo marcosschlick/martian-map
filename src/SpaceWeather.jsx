@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  fetchNotifications,
-  getQueryPeriod,
-  HISTORICAL_NOTIFICATION,
-} from "./spaceWeather.js";
+const BADGE_CONTENT = {
+  loading: { label: "Checking NASA…" },
+  nasa: { label: "NASA CME notice" },
+  empty: { label: "No CME notices", detail: "In queried period" },
+  historical: { label: "NASA unavailable", detail: "Historical example" },
+};
 
 const utcTime = (value, seconds = false) =>
   new Date(value)
@@ -11,69 +11,42 @@ const utcTime = (value, seconds = false) =>
     .slice(0, seconds ? 19 : 16)
     .replace("T", " ") + " UTC";
 
-export default function SpaceWeather() {
-  const [weather, setWeather] = useState(() => ({
-    status: "loading",
-    period: getQueryPeriod(),
-    attemptedAt: null,
-    notifications: [],
-    error: null,
-  }));
-  const activeRequest = useRef(null);
-  const mounted = useRef(false);
+export function SpaceWeatherBadge({ weather }) {
+  const { label, detail } = BADGE_CONTENT[weather.status];
+  const latestNotice =
+    weather.status === "nasa" ? weather.notifications[0] : null;
+  const tone = latestNotice
+    ? "border-amber-500/50 text-amber-500"
+    : "border-slate-800 text-slate-50";
 
-  const refresh = useCallback(async () => {
-    if (activeRequest.current) return;
-    const controller = new AbortController();
-    activeRequest.current = controller;
-    const now = new Date();
-    const period = getQueryPeriod(now);
-    const attemptedAt = now.toISOString();
-    setWeather({
-      status: "loading",
-      period,
-      attemptedAt,
-      notifications: [],
-      error: null,
-    });
-    try {
-      const notifications = await fetchNotifications(period, controller);
-      if (mounted.current && activeRequest.current === controller) {
-        setWeather({
-          status: notifications.length ? "nasa" : "empty",
-          period,
-          attemptedAt,
-          notifications,
-          error: null,
-        });
-      }
-    } catch (error) {
-      if (mounted.current && activeRequest.current === controller) {
-        setWeather({
-          status: "historical",
-          period,
-          attemptedAt,
-          notifications: [HISTORICAL_NOTIFICATION],
-          error: error.message,
-        });
-      }
-    } finally {
-      if (activeRequest.current === controller) activeRequest.current = null;
-    }
-  }, []);
+  return (
+    <div role="status" className="col-span-2 min-[400px]:col-span-1">
+      <a
+        href="#space-weather-title"
+        data-solar-notice={latestNotice ? true : undefined}
+        className={`hud-control flex min-h-10 items-center rounded-md border bg-slate-900 px-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 [@media(hover:hover)_and_(pointer:fine)]:hover:border-cyan-500 ${tone}`}
+      >
+        <span className="flex flex-wrap items-baseline gap-x-2 min-[400px]:flex-col">
+          <span className="text-xs font-semibold">{label}</span>
+          {latestNotice && (
+            <time
+              dateTime={latestNotice.messageIssueTime}
+              className="font-mono text-[10px] text-slate-400 tabular-nums"
+            >
+              {utcTime(latestNotice.messageIssueTime)}
+            </time>
+          )}
+          {detail && (
+            <span className="text-[10px] text-slate-400">{detail}</span>
+          )}
+        </span>
+        <span className="sr-only">View space weather details</span>
+      </a>
+    </div>
+  );
+}
 
-  useEffect(() => {
-    mounted.current = true;
-    // StrictMode's initial cleanup cancels the first scheduled start.
-    const start = setTimeout(refresh, 0);
-    return () => {
-      mounted.current = false;
-      clearTimeout(start);
-      activeRequest.current?.abort();
-      activeRequest.current = null;
-    };
-  }, [refresh]);
-
+export default function SpaceWeather({ weather, refresh }) {
   const historical = weather.status === "historical";
   const loading = weather.status === "loading";
   return (
@@ -84,25 +57,33 @@ export default function SpaceWeather() {
       <div className="flex items-center justify-between gap-2">
         <h3
           id="space-weather-title"
-          className="text-xs font-semibold text-slate-50"
+          tabIndex={-1}
+          className="scroll-mt-3 rounded text-xs font-semibold text-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
         >
           Space weather
         </h3>
         <button
           type="button"
-          disabled={loading}
-          onClick={refresh}
-          className="cursor-pointer rounded border border-slate-800 bg-slate-900 px-2 py-1.5 text-xs text-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 disabled:cursor-not-allowed disabled:text-slate-400 [@media(hover:hover)_and_(pointer:fine)]:enabled:hover:border-cyan-500"
+          aria-disabled={loading}
+          onClick={loading ? undefined : refresh}
+          className="hud-control cursor-pointer rounded border border-slate-800 bg-slate-900 px-2 py-1.5 text-xs text-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 aria-disabled:cursor-not-allowed aria-disabled:text-slate-400 [@media(hover:hover)_and_(pointer:fine)]:hover:border-cyan-500"
         >
           Refresh
         </button>
       </div>
       <p className="mt-2 text-[11px] text-slate-400">
-        Solar event context · Mars surface radiation not evaluated.
+        Notices about coronal mass ejections (CMEs). Local radiation at Jezero
+        remains unassessed.
       </p>
+      {weather.rejectedCount > 0 && (
+        <p className="mt-1 text-[11px] text-amber-500">
+          {weather.rejectedCount === 1
+            ? "1 invalid entry omitted"
+            : `${weather.rejectedCount} invalid entries omitted`}
+        </p>
+      )}
       <p
         id="space-weather-status"
-        role="status"
         className={`mt-2 text-xs ${historical ? "text-amber-500" : "text-slate-400"}`}
       >
         {loading
@@ -170,7 +151,7 @@ export default function SpaceWeather() {
                 {utcTime(notification.messageIssueTime)}
               </time>
               <details className="mt-1 text-[11px] leading-relaxed text-slate-400">
-                <summary className="cursor-pointer rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500">
+                <summary className="hud-control cursor-pointer rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500">
                   {historical ? "NASA message excerpt" : "NASA message text"}
                 </summary>
                 <p className="mt-1 whitespace-pre-wrap [overflow-wrap:anywhere] select-text">

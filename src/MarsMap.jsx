@@ -1,6 +1,12 @@
 import { useEffect, useImperativeHandle, useRef, useState } from "react";
 import L from "leaflet";
-import { createEnvelope, JEZERO_CRATER_COORDS } from "./evaModel.js";
+import {
+  createDirectReference,
+  createEnvelope,
+  isMarsCoordinate,
+  JEZERO_CRATER_COORDS,
+  MARS_BOUNDS,
+} from "./evaModel.js";
 
 const VIKING_OPTICAL_TILE_URL =
   "https://trek.nasa.gov/tiles/Mars/EQ/Mars_Viking_MDIM21_ClrMosaic_global_232m/1.0.0//default/default028mm/{z}/{y}/{x}.jpg";
@@ -21,6 +27,12 @@ const BUDGET_COLORS = {
 };
 const PNG_HEADER = [137, 80, 78, 71, 13, 10, 26, 10];
 const PNG_END = [0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130];
+const LAYER_OPTIONS = [
+  { id: "optical", label: "OPTICAL" },
+  { id: "elevation", label: "ELEVATION" },
+  { id: "blended", label: "BLENDED" },
+  { id: "ctx", label: "CTX Detail" },
+];
 const SOURCE_LABELS = {
   optical: "Viking optical",
   elevation: "MOLA elevation",
@@ -42,8 +54,68 @@ const HABITAT_ICON = L.divIcon({
   </svg>`,
 });
 
+function watchTileCoverage(map, layer, report) {
+  const tiles = new Map();
+  let frame = null;
+
+  function schedule() {
+    if (frame !== null) return;
+    frame = requestAnimationFrame(() => {
+      frame = null;
+      if (!map.hasLayer(layer)) return;
+
+      const viewport = map.getContainer().getBoundingClientRect();
+      const tileZoom = Math.min(map.getZoom(), layer.options.maxNativeZoom);
+      const visible = { loading: 0, ready: 0, failed: 0 };
+      for (const [tile, { coords, status }] of tiles) {
+        if (coords.z !== tileZoom) continue;
+        const rect = tile.getBoundingClientRect();
+        if (
+          rect.right > viewport.left &&
+          rect.left < viewport.right &&
+          rect.bottom > viewport.top &&
+          rect.top < viewport.bottom
+        ) {
+          visible[status] += 1;
+        }
+      }
+      if (visible.loading) report("loading");
+      else if (visible.ready && visible.failed) report("partial");
+      else report(visible.ready ? "ready" : "unavailable");
+    });
+  }
+
+  const record =
+    (status) =>
+    ({ tile, coords }) => {
+      tiles.set(tile, { coords, status });
+      if (status === "failed") tile.style.visibility = "hidden";
+      schedule();
+    };
+  const forget = ({ tile }) => {
+    tiles.delete(tile);
+    schedule();
+  };
+  const events = {
+    add: schedule,
+    tileloadstart: record("loading"),
+    tileload: record("ready"),
+    tileerror: record("failed"),
+    tileunload: forget,
+    tileabort: forget,
+  };
+  layer.on(events);
+  map.on("moveend resize", schedule);
+  return () => {
+    layer.off(events);
+    map.off("moveend resize", schedule);
+    if (frame !== null) cancelAnimationFrame(frame);
+  };
+}
+
 export default function MarsMap({
   activeLayer = "optical",
+  onLayerChange,
   radiusMeters,
   envelopeStatus,
   reservesPanelRef,
@@ -58,7 +130,7 @@ export default function MarsMap({
   const elevationLayerRef = useRef(null);
   const ctxLayerRef = useRef(null);
   const envelopeRef = useRef(null);
-  const sourcePanelRef = useRef(null);
+  const mapControlsRef = useRef(null);
   const targetMarkerRef = useRef(null);
   const directLineRef = useRef(null);
   const [zoom, setZoom] = useState(6);
@@ -78,17 +150,21 @@ export default function MarsMap({
       zoom: 6,
       minZoom: 2,
       maxZoom: MAX_ZOOM,
+      maxBounds: MARS_BOUNDS,
+      maxBoundsViscosity: 1,
     });
 
     const opticalLayer = L.tileLayer(VIKING_OPTICAL_TILE_URL, {
       maxNativeZoom: 7,
       maxZoom: MAX_ZOOM,
+      noWrap: true,
       attribution: MARS_TREK_ATTRIBUTION,
     });
 
     const elevationLayer = L.tileLayer(MOLA_ELEVATION_TILE_URL, {
       maxNativeZoom: 6,
       maxZoom: MAX_ZOOM,
+      noWrap: true,
       attribution: MARS_TREK_ATTRIBUTION,
     });
 
@@ -100,6 +176,7 @@ export default function MarsMap({
       minZoom: 2,
       maxNativeZoom: CTX_MAX_SERVICE_LEVEL + 1,
       maxZoom: MAX_ZOOM,
+      noWrap: true,
       attribution: CTX_ATTRIBUTION,
     });
     const pendingRequests = new Map();
@@ -162,26 +239,21 @@ export default function MarsMap({
       controller?.abort();
     });
 
-    for (const [id, layer] of [
+    const stopWatching = [
       ["optical", opticalLayer],
       ["elevation", elevationLayer],
       ["ctx", ctxLayer],
-    ]) {
-      const failedTiles = new Set();
-      const report = (status) =>
+    ].map(([id, layer]) =>
+      watchTileCoverage(map, layer, (status) =>
         setAvailability((current) =>
           current[id] === status ? current : { ...current, [id]: status },
-        );
-      layer.on({
-        loading: () => report("loading"),
-        tileerror: ({ tile }) => {
-          tile.style.visibility = "hidden";
-          failedTiles.add(tile);
-          report("unavailable");
-        },
-        tileunload: ({ tile }) => failedTiles.delete(tile),
-        load: () => report(failedTiles.size ? "unavailable" : "ready"),
-      });
+        ),
+      ),
+    );
+
+    function selectTarget({ lat, lng }) {
+      const coordinate = [lat, lng];
+      if (isMarsCoordinate(coordinate)) onTargetSelect(coordinate);
     }
 
     L.marker(JEZERO_CRATER_COORDS, {
@@ -220,13 +292,14 @@ export default function MarsMap({
     });
     const handleMapClick = (event) => {
       if (event.originalEvent?.target?.closest?.(".leaflet-control")) return;
-      onTargetSelect([event.latlng.lat, event.latlng.lng]);
+      selectTarget(event.latlng);
     };
     map.on("click", handleMapClick);
     map.on("zoomend", () => setZoom(map.getZoom()));
 
     return () => {
       map.off("click", handleMapClick);
+      stopWatching.forEach((stop) => stop());
       for (const controller of pendingRequests.values()) controller.abort();
       pendingRequests.clear();
       map.remove();
@@ -267,7 +340,7 @@ export default function MarsMap({
       return;
     }
     const color = BUDGET_COLORS[targetTone];
-    line.setLatLngs([JEZERO_CRATER_COORDS, target]).setStyle({ color });
+    line.setLatLngs(createDirectReference(target)).setStyle({ color });
     marker.setLatLng(target).setStyle({ color, fillColor: color });
     if (!map.hasLayer(line)) line.addTo(map);
     if (!map.hasLayer(marker)) marker.addTo(map);
@@ -280,8 +353,9 @@ export default function MarsMap({
       useMapCenter() {
         const map = mapRef.current;
         if (!map) return;
-        const center = map.getCenter();
-        onTargetSelect([center.lat, center.lng]);
+        const { lat, lng } = map.getCenter();
+        const coordinate = [lat, lng];
+        if (isMarsCoordinate(coordinate)) onTargetSelect(coordinate);
       },
       showEnvelope() {
         const map = mapRef.current;
@@ -291,42 +365,39 @@ export default function MarsMap({
         const container = map.getContainer();
         const bounds = container.getBoundingClientRect();
         const controls = [
-          sourcePanelRef.current,
+          mapControlsRef.current,
           container.querySelector(".leaflet-control-zoom"),
-          container
-            .closest("main")
-            .querySelector('[aria-label="Map data layer"]'),
         ];
         const overlays = controls
           .filter(Boolean)
           .map((element) => element.getBoundingClientRect());
-        let top =
+        const belowControls =
           Math.max(...overlays.map((overlay) => overlay.bottom)) -
           bounds.top +
           12;
-        let left = 12;
+        const besideControls =
+          Math.max(...overlays.map((overlay) => overlay.right)) -
+          bounds.left +
+          12;
         const panel = reservesPanelRef.current?.getBoundingClientRect();
         const right =
           panel && panel.top < bounds.bottom && panel.bottom > bounds.top
             ? bounds.right - panel.left + 12
             : 12;
-        const attribution = container
-          .querySelector(".leaflet-control-attribution")
-          .getBoundingClientRect();
-        const bottom = bounds.bottom - attribution.top + 12;
-        // Short landscape viewports have more room beside the top overlays.
-        if (bounds.height - top - bottom < 16) {
-          top = 12;
-          left =
-            Math.max(...overlays.map((overlay) => overlay.right)) -
-            bounds.left +
-            12;
-        }
-        if (
-          bounds.width - left - right <= 0 ||
-          bounds.height - top - bottom <= 0
-        )
-          return;
+        const attribution = container.querySelector(
+          ".leaflet-control-attribution",
+        );
+        const bottom =
+          bounds.bottom -
+          (attribution?.getBoundingClientRect().top ?? bounds.bottom) +
+          12;
+        const room = (left, top) =>
+          Math.min(bounds.width - left - right, bounds.height - top - bottom);
+        const [left, top] =
+          room(12, belowControls) >= room(besideControls, 12)
+            ? [12, belowControls]
+            : [besideControls, 12];
+        if (room(left, top) <= 0) return;
         map.fitBounds(envelope.getBounds(), {
           paddingTopLeft: [left, top],
           paddingBottomRight: [right, bottom],
@@ -376,53 +447,86 @@ export default function MarsMap({
 
   const sourceIds =
     activeLayer === "blended" ? ["optical", "elevation"] : [activeLayer];
-  const unavailable = sourceIds.some(
-    (id) => availability[id] === "unavailable",
-  );
-  const loading = sourceIds.some((id) => availability[id] === "loading");
+  const statuses = sourceIds.map((id) => availability[id]);
+  const loading = statuses.includes("loading");
+  const unavailable = statuses.every((status) => status === "unavailable");
+  const partial =
+    statuses.includes("partial") ||
+    (!unavailable && statuses.includes("unavailable"));
   const enlarged =
     activeLayer === "optical"
       ? zoom > 7
       : activeLayer === "elevation" || activeLayer === "blended"
         ? zoom > 6
         : false;
-  let message = unavailable
-    ? "Imagery incomplete / unavailable"
-    : loading
-      ? "Loading imagery"
-      : "Loaded";
+  let message = loading
+    ? "Loading imagery"
+    : unavailable
+      ? "Imagery unavailable"
+      : partial
+        ? "Imagery incomplete"
+        : "Loaded";
   if (activeLayer === "ctx") {
-    message = unavailable
-      ? availability.optical === "unavailable"
-        ? "CTX and Viking context unavailable"
-        : "CTX unavailable · Viking fallback"
-      : loading
-        ? "Loading CTX · Viking context"
-        : "CTX loaded";
-  } else if (enlarged) {
+    const vikingContext = {
+      loading: "Viking loading",
+      ready: "Viking fallback",
+      partial: "Viking incomplete",
+      unavailable: "Viking unavailable",
+    }[availability.optical];
+    message =
+      availability.ctx === "ready"
+        ? "CTX loaded"
+        : `${loading ? "Loading CTX" : partial ? "CTX incomplete" : "CTX unavailable"} · ${vikingContext}`;
+  } else if (enlarged && !loading && !unavailable) {
     message += " · Enlarged beyond native detail";
   }
 
   return (
     <div className="relative h-full w-full">
-      <div ref={containerRef} className="h-full w-full bg-slate-950" />
       <div
-        ref={sourcePanelRef}
-        aria-label="Imagery source"
-        className="absolute top-20 left-14 z-[1000] max-w-[calc(100%-4.25rem)] rounded-lg border border-slate-800 bg-slate-950/90 px-2.5 py-2 text-[11px] backdrop-blur-sm sm:top-14"
+        ref={containerRef}
+        role="region"
+        aria-label="Mars map"
+        className="h-full w-full bg-slate-950"
+      />
+      <div
+        ref={mapControlsRef}
+        className="pointer-events-none absolute top-2.5 left-14 z-[1000] flex max-w-[calc(100%-4.25rem)] flex-col items-start gap-2"
       >
-        <p className="text-slate-50">
-          {SOURCE_LABELS[activeLayer]} · Zoom {zoom}
-        </p>
-        <p
-          role="status"
-          className={`mt-0.5 ${unavailable ? "text-amber-500" : "text-slate-400"}`}
+        <div
+          role="group"
+          aria-label="Map data layer"
+          className="hud-panel pointer-events-auto grid grid-cols-2 gap-1 rounded-lg border border-slate-800 bg-slate-950/90 p-1 backdrop-blur-sm sm:flex"
         >
-          {message}
-        </p>
-        {activeLayer === "ctx" && (
-          <p className="mt-0.5 text-slate-400">Preliminary / uncontrolled</p>
-        )}
+          {LAYER_OPTIONS.map(({ id, label }) => (
+            <button
+              key={id}
+              type="button"
+              aria-pressed={id === activeLayer}
+              onClick={() => onLayerChange(id)}
+              className="hud-control cursor-pointer rounded bg-slate-900 px-2 py-1 text-[11px] font-semibold tracking-wider text-slate-400 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cyan-500 aria-pressed:bg-cyan-500 aria-pressed:text-slate-950 sm:px-2.5 sm:text-xs"
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <div
+          aria-label="Imagery source"
+          className="hud-panel pointer-events-auto rounded-lg border border-slate-800 bg-slate-950/90 px-2.5 py-2 text-[11px] backdrop-blur-sm"
+        >
+          <p className="text-slate-50">
+            {SOURCE_LABELS[activeLayer]} · Zoom {zoom}
+          </p>
+          <p
+            role="status"
+            className={`mt-0.5 ${!loading && (unavailable || partial) ? "text-amber-500" : "text-slate-400"}`}
+          >
+            {message}
+          </p>
+          {activeLayer === "ctx" && (
+            <p className="mt-0.5 text-slate-400">Preliminary / uncontrolled</p>
+          )}
+        </div>
       </div>
     </div>
   );

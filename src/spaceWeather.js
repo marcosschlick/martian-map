@@ -50,49 +50,63 @@ function officialMessageUrl(value) {
   return url.href;
 }
 
+function normalizeNotification(item, period) {
+  if (
+    !item ||
+    typeof item !== "object" ||
+    ![
+      "messageID",
+      "messageType",
+      "messageIssueTime",
+      "messageURL",
+      "messageBody",
+    ].every(
+      (field) =>
+        typeof item[field] === "string" && item[field].trim().length > 0,
+    ) ||
+    item.messageType.trim() !== "CME" ||
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?Z$/.test(
+      item.messageIssueTime,
+    ) ||
+    !Number.isFinite(Date.parse(item.messageIssueTime))
+  ) {
+    throw new DonkiError("Unexpected NASA notification data.");
+  }
+  const issueDate = new Date(item.messageIssueTime).toISOString();
+  if (
+    issueDate.slice(0, 16) !== item.messageIssueTime.slice(0, 16) ||
+    issueDate.slice(0, 10) < period.startDate ||
+    issueDate.slice(0, 10) > period.endDate
+  ) {
+    throw new DonkiError(
+      "NASA notification date is outside the queried period or invalid.",
+    );
+  }
+  return {
+    messageID: item.messageID.trim(),
+    messageType: "CME",
+    messageIssueTime: item.messageIssueTime,
+    messageURL: officialMessageUrl(item.messageURL),
+    messageBody: item.messageBody.trim(),
+  };
+}
+
 export function normalizeNotifications(payload, period) {
   if (!Array.isArray(payload))
     throw new DonkiError("Unexpected NASA response structure.");
   const unique = new Map();
+  let firstError;
+  let rejectedCount = 0;
   for (const item of payload) {
-    if (
-      !item ||
-      typeof item !== "object" ||
-      ![
-        "messageID",
-        "messageType",
-        "messageIssueTime",
-        "messageURL",
-        "messageBody",
-      ].every(
-        (field) =>
-          typeof item[field] === "string" && item[field].trim().length > 0,
-      ) ||
-      item.messageType.trim() !== "CME" ||
-      !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?Z$/.test(
-        item.messageIssueTime,
-      ) ||
-      !Number.isFinite(Date.parse(item.messageIssueTime))
-    ) {
-      throw new DonkiError("Unexpected NASA notification data.");
+    let notification;
+    try {
+      notification = normalizeNotification(item, period);
+    } catch (error) {
+      if (!(error instanceof DonkiError)) throw error;
+      firstError ??= error;
+      rejectedCount += 1;
+      continue;
     }
-    const issueDate = new Date(item.messageIssueTime).toISOString();
-    if (
-      issueDate.slice(0, 16) !== item.messageIssueTime.slice(0, 16) ||
-      issueDate.slice(0, 10) < period.startDate ||
-      issueDate.slice(0, 10) > period.endDate
-    ) {
-      throw new DonkiError(
-        "NASA notification date is outside the queried period or invalid.",
-      );
-    }
-    const notification = {
-      messageID: item.messageID.trim(),
-      messageType: "CME",
-      messageIssueTime: item.messageIssueTime,
-      messageURL: officialMessageUrl(item.messageURL),
-      messageBody: item.messageBody.trim(),
-    };
     const previous = unique.get(notification.messageID);
     if (
       !previous ||
@@ -102,13 +116,15 @@ export function normalizeNotifications(payload, period) {
       unique.set(notification.messageID, notification);
     }
   }
-  return Array.from(unique.values())
+  if (!unique.size && firstError) throw firstError;
+  const notifications = Array.from(unique.values())
     .sort(
       (a, b) =>
         Date.parse(b.messageIssueTime) - Date.parse(a.messageIssueTime) ||
         a.messageID.localeCompare(b.messageID),
     )
     .slice(0, 3);
+  return { notifications, rejectedCount };
 }
 
 export async function fetchNotifications(period, controller) {
@@ -118,13 +134,17 @@ export async function fetchNotifications(period, controller) {
     controller.abort();
   }, DONKI_TIMEOUT_MS);
   try {
-    const url = new URL(DONKI_ENDPOINT);
-    url.search = new URLSearchParams({
+    const useProxy = import.meta.env.DONKI_PROXY_ENABLED;
+    const url = useProxy
+      ? new URL("/api/donki/notifications", window.location.origin)
+      : new URL(DONKI_ENDPOINT);
+    const params = new URLSearchParams({
       startDate: period.startDate,
       endDate: period.endDate,
       type: "CME",
-      api_key: import.meta.env.VITE_NASA_API_KEY || "DEMO_KEY",
-    }).toString();
+    });
+    if (!useProxy) params.set("api_key", "DEMO_KEY");
+    url.search = params.toString();
     const response = await fetch(url, { signal: controller.signal });
     if (!response.ok) {
       throw new DonkiError(
