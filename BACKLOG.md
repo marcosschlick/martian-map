@@ -33,7 +33,7 @@ A hyperlocalized tactical EVA navigation HUD centered on **Jezero Crater** (`18.
 - [x] **Floating HUD Layer Switcher:** Build a floating overlay control (`z-[1000]+`) to toggle between Optical, Elevation, and blended layer views.
 
 ### Phase 3: Point of No Return & EVA Waypoint Engine
-- [ ] **Suit Telemetry Controls:** Add interactive suit oxygen and battery reserve sliders in the tactical HUD.
+- [x] **Suit Telemetry Controls:** Add interactive suit oxygen and battery reserve sliders in the tactical HUD.
 - [ ] **Dynamic Autonomy Circle:** Render and update an `L.circle` safety perimeter around the Habitat whose radius scales dynamically with oxygen and battery reserves.
 - [ ] **Click-to-Place EVA Waypoint:** Allow astronauts/planners to click the map to place a target EVA waypoint and compute surface distance from the Habitat.
 - [ ] **Real-Time Safe / Danger Route Status:** Trigger clear visual risk warnings in the HUD and route line styling when a waypoint exceeds the Autonomy Circle radius.
