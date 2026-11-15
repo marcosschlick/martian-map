@@ -2,6 +2,8 @@ export const JEZERO_CRATER_COORDS = [18.38, 77.58];
 // GCS_Mars_2000_Sphere, verified against the CTX provider's WKT.
 export const MARS_RADIUS_METERS = 3396190;
 export const RESERVE_WARNING_PERCENT = 30;
+// Only recognizes the analytic boundary; it does not add usable reach.
+export const TARGET_LIMIT_TOLERANCE_METERS = 0.01;
 export const MODEL_ASSUMPTIONS = {
   oxygenCapacityMinutes: 240,
   batteryCapacityMinutes: 180,
@@ -93,4 +95,40 @@ export function marsDistanceMeters(from, to) {
     MARS_RADIUS_METERS *
     Math.atan2(Math.sqrt(clamped), Math.sqrt(1 - clamped))
   );
+}
+
+export function evaluateTarget(target, excursion) {
+  if (!target) return null;
+  const distanceMeters = marsDistanceMeters(JEZERO_CRATER_COORDS, target);
+  const roundTripMinutes =
+    (2 * distanceMeters) / (MODEL_ASSUMPTIONS.walkingMetersPerHour / 60);
+  const timeMarginMinutes = excursion.excursionBudgetMinutes - roundTripMinutes;
+  const state =
+    excursion.excursionBudgetMinutes === 0
+      ? "empty"
+      : Math.abs(distanceMeters - excursion.radiusMeters) <=
+          TARGET_LIMIT_TOLERANCE_METERS
+        ? "limit"
+        : distanceMeters < excursion.radiusMeters
+          ? "within"
+          : "exceeded";
+  const labels = {
+    empty: "No excursion budget",
+    limit: "At modeled limit",
+    within: "Within modeled budget",
+    exceeded: "Exceeds modeled budget",
+  };
+  return {
+    distanceMeters,
+    roundTripMinutes,
+    timeMarginMinutes,
+    state,
+    label: labels[state],
+    tone:
+      state === "empty" || state === "exceeded"
+        ? "danger"
+        : state === "limit" || excursion.status === "warning"
+          ? "warning"
+          : "available",
+  };
 }

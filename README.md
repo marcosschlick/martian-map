@@ -7,7 +7,7 @@ Tactical hyperlocalized EVA navigation HUD for Mars surface exploration, built f
 **Martian Map** focuses on **Jezero Crater** and integrates **3 official NASA data layers** with survival-oriented UX mechanics for Extravehicular Activities (EVAs):
 
 - **Multi-Layer Mars Visualization:** Combines Viking optical imagery and MOLA elevation tiles from **NASA Mars Trek WMTS** with solar radiation/CME alerts from the **NASA DONKI API**.
-- **Modeled EVA Return Envelope:** Illustrates outward-and-return travel reach from simulated oxygen/battery budgets, a protected reserve and explicit demo assumptions. Terrain, routes and space weather are not evaluated by this model.
+- **Modeled EVA Return Envelope and Target:** Illustrates outward-and-return travel reach from simulated oxygen/battery budgets and evaluates a selected target's direct travel budget. Terrain, traversability and space weather remain unevaluated.
 - **Pressurized Glove Mode:** Toggles between detailed mission planning and an oversized, high-contrast interface designed for astronauts wearing pressurized spacesuit gloves.
 
 ## Tech Stack
@@ -115,11 +115,49 @@ Only **Show envelope** fits the perimeter into the view. It measures the current
 
 Numeric verification covered all 10,201 integer Oxygen/Battery combinations. Their 121 distinct radii include zero; 11,520 generated vertices at the 120 positive radii had a maximum absolute spherical-distance error of **4.17 × 10⁻⁹ m** relative to their requested radius. This is floating-point consistency on the assumed sphere, not a claim about map registration, walking accuracy or physical suit performance.
 
-The model assumes constant walking speed and resource consumption, direct travel and no stops. It does not evaluate terrain, slopes, obstacles, radiation, science tasks, destinations or actual routes. Real navigation and life-support decisions require information that this illustration does not provide.
+The model assumes constant walking speed and resource consumption, direct travel and no stops. It evaluates a selected target's direct displacement budget, but does not evaluate terrain, slopes, obstacles, radiation, science tasks or traversable routes. Real navigation and life-support decisions require information that this illustration does not provide.
 
 Interactive Chromium review covered the required numeric cases, reset, zero-budget removal, one persistent map instance, positive-budget geometry updates, and reserve preservation across all four imagery modes. Show envelope kept the perimeter clear of HUD panels at 1440 × 900, 768 × 1024, 390 × 844, 320 × 568 and 667 × 375; short landscape framing uses space beside the overlays. Keyboard activation and visible focus were checked for the controls, framing button and assumptions disclosure. Opening assumptions and reaching zero budget did not resize or move the mobile map. CTX fallback was checked with both the damaged service-level-11 images and a simulated HTTP 503. Physical devices, other browser engines and screen readers were not verified. No test files or testing frameworks were added.
 
 Review captures: [full reserves](output/playwright/envelope-full.png), [reduced reserves](output/playwright/envelope-reduced.png), [zero excursion budget with resources remaining](output/playwright/envelope-zero.png).
+
+## EVA target direct budget estimate
+
+Click or tap the map to select one target; another selection replaces it. **Use map center** selects the current center without moving the view: focus the map, pan with its arrow keys and activate the button using Tab and Enter/Space. **Clear target** removes only the target, its reference line, tooltip and evaluation. Reserve edits, Reset reserves, imagery changes and Show envelope retain the selected target. Clicking HUD/Leaflet controls or dragging the map does not select a target. Selecting a point or changing reserves does not recenter or zoom the map.
+
+App owns the selected coordinate alongside the simulated reserves. `evaluateTarget` in `src/evaModel.js` derives the estimate using the existing haversine distance and the same **3,396,190 m Mars sphere** as the perimeter:
+
+```text
+distanceMeters = marsDistanceMeters(habitat, target)
+roundTripMinutes = 2 * distanceMeters / (2000 / 60)
+timeMarginMinutes = excursionBudgetMinutes - roundTripMinutes
+```
+
+Classification uses the unrounded distance and **analytic radius**, not containment in the rendered 96-vertex polygon. A **0.01 m** absolute distance tolerance recognizes `At modeled limit` on either side of the boundary; it does not add travel time, increase the budget or adjust the raw time margin. The HUD rounds only displayed numbers, avoids signed zero, and describes sub-0.1-minute shortfalls explicitly.
+
+| Condition | Evaluation | Target color |
+| --- | --- | --- |
+| No target | Select an EVA target | Neutral |
+| Zero excursion budget, including a target at the Habitat | No excursion budget | Red |
+| Positive budget and distance within 0.01 m of the radius | At modeled limit | Amber |
+| Positive budget and distance below the radius, outside the limit tolerance | Within modeled budget | Green, or amber with low reserves |
+| Positive budget and distance above the radius, outside the limit tolerance | Exceeds modeled budget | Red |
+
+The target color applies to one pixel-sized marker and a dashed **Direct estimate** reference line. It is independent of the perimeter color, which continues to describe the reserve state. The HUD shows **Terrain not evaluated**, Distance, Round-trip time, Time margin and the evaluation text. A shortfall explicitly states the missing minutes and limiting resource. Zero budget takes priority over the distance classification. Neither marker nor line captures map input; they are updated using existing Leaflet layer references, with one map click listener removed during cleanup.
+
+| Oxygen / Battery | Target distance | Round trip | Time margin | Evaluation |
+| --- | --- | --- | --- | --- |
+| 100% / 100% | 1,800 m | 108 min | +36 min | Within modeled budget |
+| 100% / 50% | Same 1,800 m target | 108 min | -54 min | Exceeds modeled budget; Battery limits |
+| 100% / 100% | 2,400 m | 144 min | 0 min | At modeled limit |
+| 100% / 100% | 3,000 m | 180 min | -36 min | Exceeds modeled budget |
+| Either resource at 20% or below | Target retained | Depends on distance | Zero budget minus round-trip time | No excursion budget |
+
+The reference line connects the two coordinates in the map projection; distance is computed separately on the Mars sphere. It is **not a navigable route**, terrain survey or guarantee of return. The calculation retains the same illustrative capacities, 20 percentage-point protected reserve, constant 2 km/h speed/consumption and no-stop assumptions. Terrain, slopes, obstacles, science objectives, DONKI and glove mode remain outside this block.
+
+Numeric checks generated target coordinates with the existing Mars envelope geometry for 1,800, 2,400 and 3,000 m. Additional checks covered distances 0.009 m and 0.011 m on either side of the limit, low reserves, null selection and zero budget at the Habitat. Interactive Chromium checks covered click/touch selection, replacement, clear, keyboard center selection and focus, unchanged view on selection/reserve edits, persistence across reset/framing/pan/zoom and the four imagery modes, and a simulated CTX HTTP 503 fallback. Marker/line counts remained one when selected and zero after clearing. Layouts were reviewed at 1440 × 900, 768 × 1024, 390 × 844, 320 × 568 and 667 × 375, including a touch-enabled browser context. Small panels scroll internally. These checks do not verify physical devices, screen readers, other browser engines or real terrain suitability.
+
+Review captures: [within budget](output/playwright/target-within.png), [budget exceeded with the same target](output/playwright/target-exceeded.png), [zero budget with target retained](output/playwright/target-zero.png). Browser clicks select map coordinates at display-pixel precision; the numeric reference cases above use generated spherical coordinates before display rounding.
 
 ## Team — Tuxonauts
 

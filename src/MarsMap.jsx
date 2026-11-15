@@ -14,6 +14,11 @@ const CTX_MAX_SERVICE_LEVEL = 12;
 const MAX_ZOOM = CTX_MAX_SERVICE_LEVEL + 1;
 const CTX_DETAIL_ZOOM = MAX_ZOOM;
 const TILE_TIMEOUT_MS = 15000;
+const BUDGET_COLORS = {
+  available: "#10B981",
+  warning: "#F59E0B",
+  danger: "#EF4444",
+};
 const PNG_HEADER = [137, 80, 78, 71, 13, 10, 26, 10];
 const PNG_END = [0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130];
 const SOURCE_LABELS = {
@@ -42,6 +47,9 @@ export default function MarsMap({
   radiusMeters,
   envelopeStatus,
   reservesPanelRef,
+  target,
+  targetTone,
+  onTargetSelect,
   ref,
 }) {
   const containerRef = useRef(null);
@@ -51,6 +59,8 @@ export default function MarsMap({
   const ctxLayerRef = useRef(null);
   const envelopeRef = useRef(null);
   const sourcePanelRef = useRef(null);
+  const targetMarkerRef = useRef(null);
+  const directLineRef = useRef(null);
   const [zoom, setZoom] = useState(6);
   const [availability, setAvailability] = useState({
     optical: "loading",
@@ -174,7 +184,10 @@ export default function MarsMap({
       });
     }
 
-    L.marker(JEZERO_CRATER_COORDS, { icon: HABITAT_ICON })
+    L.marker(JEZERO_CRATER_COORDS, {
+      icon: HABITAT_ICON,
+      bubblingMouseEvents: true,
+    })
       .addTo(map)
       .bindTooltip("Habitat Base · Jezero Crater", { direction: "top" });
 
@@ -188,9 +201,32 @@ export default function MarsMap({
       weight: 2,
       fillOpacity: 0.06,
     });
+    targetMarkerRef.current = L.circleMarker(JEZERO_CRATER_COORDS, {
+      className: "eva-target-marker",
+      radius: 7,
+      weight: 2,
+      fillOpacity: 0.85,
+      interactive: false,
+    }).bindTooltip("Direct estimate", {
+      permanent: true,
+      direction: "auto",
+      offset: [8, 0],
+    });
+    directLineRef.current = L.polyline([], {
+      className: "eva-direct-estimate",
+      weight: 2,
+      dashArray: "6 5",
+      interactive: false,
+    });
+    const handleMapClick = (event) => {
+      if (event.originalEvent?.target?.closest?.(".leaflet-control")) return;
+      onTargetSelect([event.latlng.lat, event.latlng.lng]);
+    };
+    map.on("click", handleMapClick);
     map.on("zoomend", () => setZoom(map.getZoom()));
 
     return () => {
+      map.off("click", handleMapClick);
       for (const controller of pendingRequests.values()) controller.abort();
       pendingRequests.clear();
       map.remove();
@@ -199,8 +235,10 @@ export default function MarsMap({
       elevationLayerRef.current = null;
       ctxLayerRef.current = null;
       envelopeRef.current = null;
+      targetMarkerRef.current = null;
+      directLineRef.current = null;
     };
-  }, []);
+  }, [onTargetSelect]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -209,11 +247,7 @@ export default function MarsMap({
     envelope.setLatLngs(createEnvelope(radiusMeters));
     envelope.setStyle({
       color:
-        envelopeStatus === "warning"
-          ? "#F59E0B"
-          : envelopeStatus === "empty"
-            ? "#EF4444"
-            : "#10B981",
+        BUDGET_COLORS[envelopeStatus === "empty" ? "danger" : envelopeStatus],
     });
     if (radiusMeters > 0) {
       if (!map.hasLayer(envelope)) envelope.addTo(map);
@@ -222,9 +256,33 @@ export default function MarsMap({
     }
   }, [radiusMeters, envelopeStatus]);
 
+  useEffect(() => {
+    const map = mapRef.current;
+    const marker = targetMarkerRef.current;
+    const line = directLineRef.current;
+    if (!map || !marker || !line) return;
+    if (!target) {
+      if (map.hasLayer(marker)) map.removeLayer(marker);
+      if (map.hasLayer(line)) map.removeLayer(line);
+      return;
+    }
+    const color = BUDGET_COLORS[targetTone];
+    line.setLatLngs([JEZERO_CRATER_COORDS, target]).setStyle({ color });
+    marker.setLatLng(target).setStyle({ color, fillColor: color });
+    if (!map.hasLayer(line)) line.addTo(map);
+    if (!map.hasLayer(marker)) marker.addTo(map);
+    marker.bringToFront();
+  }, [target, targetTone]);
+
   useImperativeHandle(
     ref,
     () => ({
+      useMapCenter() {
+        const map = mapRef.current;
+        if (!map) return;
+        const center = map.getCenter();
+        onTargetSelect([center.lat, center.lng]);
+      },
       showEnvelope() {
         const map = mapRef.current;
         const envelope = envelopeRef.current;
@@ -277,7 +335,7 @@ export default function MarsMap({
         });
       },
     }),
-    [reservesPanelRef],
+    [reservesPanelRef, onTargetSelect],
   );
 
   useEffect(() => {

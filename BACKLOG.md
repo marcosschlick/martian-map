@@ -36,8 +36,8 @@ A hyperlocalized tactical EVA navigation HUD centered on **Jezero Crater** (`18.
 ### Phase 3: Point of No Return & EVA Waypoint Engine
 - [x] **Suit Telemetry Controls:** Add interactive suit oxygen and battery reserve sliders in the tactical HUD.
 - [x] **Dynamic Autonomy Circle:** Render an illustrative round-trip return envelope as a 96-vertex Mars-sphere geodesic `L.polygon`, derived from simulated oxygen/battery budgets after a protected reserve; update without moving the view, remove at zero budget, and provide explicit Show envelope framing.
-- [ ] **Click-to-Place EVA Waypoint:** Allow astronauts/planners to click the map to place a target EVA waypoint and compute surface distance from the Habitat.
-- [ ] **Real-Time Safe / Danger Route Status:** Trigger clear visual risk warnings in the HUD and route line styling when a waypoint exceeds the Autonomy Circle radius.
+- [x] **Click-to-Place EVA Waypoint:** Select or replace one EVA target by map click/tap or Use map center, preserve it across reserve/layer/view changes, and clear its marker, direct reference line and results with Clear target.
+- [x] **Modeled EVA Target Budget Status:** Compare unrounded Mars-sphere target distance with the analytic return radius, recognize the limit within 0.01 m, and display direct round-trip time, signed time margin, limiting resource and independent target colors without evaluating terrain or validating a route.
 
 ### Phase 4: Space Weather Integration (NASA DONKI)
 - [ ] **DONKI API Fetch & Fallback:** Query CME/solar radiation notifications from `https://api.nasa.gov/DONKI/notifications` using `import.meta.env.VITE_NASA_API_KEY || 'DEMO_KEY'` wrapped in `try/catch` with realistic static fallback data.

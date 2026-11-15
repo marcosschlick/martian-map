@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import MarsMap from "./MarsMap.jsx";
 import {
   calculateExcursion,
+  evaluateTarget,
   MODEL_ASSUMPTIONS,
   RESERVE_WARNING_PERCENT,
 } from "./evaModel.js";
@@ -18,20 +19,34 @@ const RESERVE_OPTIONS = [
   { id: "battery", label: "Battery" },
 ];
 
+const formatNumber = (value) =>
+  value.toLocaleString("en-US", { maximumFractionDigits: 1 });
+const formatDistance = (value) =>
+  value >= 1000
+    ? `${formatNumber(value / 1000)} km`
+    : `${formatNumber(value)} m`;
+
 export default function App() {
   const [activeLayer, setActiveLayer] = useState("optical");
   const [reserves, setReserves] = useState({ oxygen: 100, battery: 100 });
+  const [target, setTarget] = useState(null);
   const mapRef = useRef(null);
   const reservesPanelRef = useRef(null);
   const excursion = calculateExcursion(reserves);
+  const targetEvaluation = evaluateTarget(target, excursion);
+  const targetColor = !targetEvaluation
+    ? "text-slate-400"
+    : targetEvaluation.tone === "danger"
+      ? "text-red-500"
+      : targetEvaluation.tone === "warning"
+        ? "text-amber-500"
+        : "text-emerald-500";
   const modelColor =
     excursion.status === "empty"
       ? "text-red-500"
       : excursion.status === "warning"
         ? "text-amber-500"
         : "text-emerald-500";
-  const formatNumber = (value) =>
-    value.toLocaleString("en-US", { maximumFractionDigits: 1 });
 
   return (
     <div className="flex h-dvh w-full flex-col overflow-hidden bg-slate-950 text-slate-50 select-none">
@@ -84,6 +99,9 @@ export default function App() {
             radiusMeters={excursion.radiusMeters}
             envelopeStatus={excursion.status}
             reservesPanelRef={reservesPanelRef}
+            target={target}
+            targetTone={targetEvaluation?.tone}
+            onTargetSelect={setTarget}
           />
         </div>
 
@@ -172,6 +190,101 @@ export default function App() {
             })}
           </div>
 
+          <div
+            className="mt-3 border-t border-slate-800 pt-3"
+            aria-labelledby="eva-target-title"
+          >
+            <h3
+              id="eva-target-title"
+              className="text-xs font-semibold text-slate-50"
+            >
+              EVA target
+            </h3>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => mapRef.current?.useMapCenter()}
+                className="cursor-pointer rounded border border-slate-800 bg-slate-900 px-2 py-1.5 text-xs text-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 [@media(hover:hover)_and_(pointer:fine)]:hover:border-cyan-500"
+              >
+                Use map center
+              </button>
+              <button
+                type="button"
+                disabled={!target}
+                onClick={() => setTarget(null)}
+                className="cursor-pointer rounded border border-slate-800 bg-slate-900 px-2 py-1.5 text-xs text-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 disabled:cursor-not-allowed disabled:text-slate-400 [@media(hover:hover)_and_(pointer:fine)]:enabled:hover:border-cyan-500"
+              >
+                Clear target
+              </button>
+            </div>
+            <p
+              id="target-status"
+              role="status"
+              className={`mt-2 text-xs ${targetColor}`}
+            >
+              {targetEvaluation?.label || "Select an EVA target"}
+            </p>
+            <p className="mt-1 text-[11px] text-slate-400">
+              Direct estimate · Terrain not evaluated
+            </p>
+            {targetEvaluation && (
+              <>
+                <dl
+                  aria-label="EVA target estimate"
+                  className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2 text-xs"
+                >
+                  <div>
+                    <dt className="text-[11px] text-slate-400">Distance</dt>
+                    <dd
+                      id="target-distance"
+                      className={`mt-0.5 font-mono tabular-nums ${targetColor}`}
+                    >
+                      {formatDistance(targetEvaluation.distanceMeters)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] text-slate-400">
+                      Round-trip time
+                    </dt>
+                    <dd
+                      id="target-round-trip"
+                      className={`mt-0.5 font-mono tabular-nums ${targetColor}`}
+                    >
+                      {formatNumber(targetEvaluation.roundTripMinutes)} min
+                    </dd>
+                  </div>
+                  <div className="col-span-2">
+                    <dt className="text-[11px] text-slate-400">Time margin</dt>
+                    <dd
+                      id="target-time-margin"
+                      className={`mt-0.5 font-mono tabular-nums ${targetColor}`}
+                    >
+                      {targetEvaluation.state === "exceeded" &&
+                      -targetEvaluation.timeMarginMinutes < 0.1
+                        ? "<0.1 min short"
+                        : `${targetEvaluation.timeMarginMinutes.toLocaleString("en-US", { maximumFractionDigits: 1, signDisplay: "exceptZero" })} min`}
+                    </dd>
+                  </div>
+                </dl>
+                {targetEvaluation.timeMarginMinutes < 0 &&
+                  targetEvaluation.state !== "limit" && (
+                    <p
+                      id="target-shortfall"
+                      className="mt-2 text-[11px] text-red-500"
+                    >
+                      Exceeds budget by{" "}
+                      {-targetEvaluation.timeMarginMinutes < 0.1
+                        ? "<0.1"
+                        : formatNumber(
+                            -targetEvaluation.timeMarginMinutes,
+                          )}{" "}
+                      min. Limiting resource: {excursion.limitingResource}.
+                    </p>
+                  )}
+              </>
+            )}
+          </div>
+
           <div className="mt-3 border-t border-slate-800 pt-3">
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-xs font-semibold text-slate-50">
@@ -208,9 +321,7 @@ export default function App() {
                   id="estimated-reach"
                   className={`mt-0.5 font-mono tabular-nums ${modelColor}`}
                 >
-                  {excursion.radiusMeters >= 1000
-                    ? `${formatNumber(excursion.radiusMeters / 1000)} km`
-                    : `${formatNumber(excursion.radiusMeters)} m`}
+                  {formatDistance(excursion.radiusMeters)}
                 </dd>
               </div>
               <div>
