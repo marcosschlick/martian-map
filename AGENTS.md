@@ -25,6 +25,7 @@ We are building a hyperlocalized tactical HUD for astronauts on Mars surface wal
 - **Language:** All UI text, code, comments, and commits must be in English.
 - **Formatting & Linting:** Always run `npm run format` and `npm run lint` after every code modification and fix any issues before finishing.
 - **Backlog Tracking:** Always check `BACKLOG.md` before starting work and mark completed tasks with `- [x]` whenever a feature or task is finished.
+- **Color Palette:** Follow `PALETTE.md` for all UI and map styling.
 
 ## Git Commit Convention
 - Use **Conventional Commits** in English.
