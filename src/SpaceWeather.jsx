@@ -1,8 +1,27 @@
+import { CardHeader, Icon, StatusDot } from "./HudKit.jsx";
+import {
+  ALERT,
+  BUTTON,
+  CARD,
+  FOCUS_RING,
+  INSET,
+  LABEL,
+  LINK,
+  SUMMARY,
+} from "./hudStyles.js";
+
 const BADGE_CONTENT = {
   loading: { label: "Checking NASA…" },
   nasa: { label: "NASA CME notice" },
   empty: { label: "No CME notices", detail: "In queried period" },
   historical: { label: "NASA unavailable", detail: "Historical example" },
+};
+
+const STATUS_TONE = {
+  loading: "accent",
+  nasa: "warning",
+  empty: "neutral",
+  historical: "warning",
 };
 
 const utcTime = (value, seconds = false) =>
@@ -24,10 +43,19 @@ export function SpaceWeatherBadge({ weather }) {
       <a
         href="#space-weather-title"
         data-solar-notice={latestNotice ? true : undefined}
-        className={`hud-control flex min-h-10 items-center rounded-md border bg-slate-900 px-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 [@media(hover:hover)_and_(pointer:fine)]:hover:border-cyan-500 ${tone}`}
+        className={`hud-control flex min-h-10 items-center gap-2 rounded-md border bg-slate-900 px-2 transition-[border-color,background-color] duration-150 ease-hud [@media(hover:hover)_and_(pointer:fine)]:hover:border-cyan-500 ${FOCUS_RING} ${tone}`}
       >
+        <StatusDot
+          tone={STATUS_TONE[weather.status]}
+          pulse={weather.status === "loading" || Boolean(latestNotice)}
+        />
         <span className="flex flex-wrap items-baseline gap-x-2 min-[400px]:flex-col">
-          <span className="text-xs font-semibold">{label}</span>
+          <span
+            key={weather.status}
+            className="text-xs font-semibold motion-safe:animate-hud-fade"
+          >
+            {label}
+          </span>
           {latestNotice && (
             <time
               dateTime={latestNotice.messageIssueTime}
@@ -52,26 +80,30 @@ export default function SpaceWeather({ weather, refresh }) {
   return (
     <section
       aria-labelledby="space-weather-title"
-      className="mt-3 border-t border-slate-800 pt-3"
+      aria-busy={loading}
+      className={`${CARD} scroll-mt-3`}
+      style={{ animationDelay: "180ms" }}
     >
-      <div className="flex items-center justify-between gap-2">
-        <h3
-          id="space-weather-title"
-          tabIndex={-1}
-          className="scroll-mt-3 rounded text-xs font-semibold text-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
-        >
-          Space weather
-        </h3>
+      <CardHeader
+        icon="sun"
+        title="Space weather"
+        id="space-weather-title"
+        tabIndex={-1}
+      >
         <button
           type="button"
           aria-disabled={loading}
           onClick={loading ? undefined : refresh}
-          className="hud-control cursor-pointer rounded border border-slate-800 bg-slate-900 px-2 py-1.5 text-xs text-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 aria-disabled:cursor-not-allowed aria-disabled:text-slate-400 [@media(hover:hover)_and_(pointer:fine)]:hover:border-cyan-500"
+          className={BUTTON}
         >
+          <Icon
+            name="refresh"
+            className={`size-3.5 ${loading ? "motion-safe:animate-spin" : ""}`}
+          />
           Refresh
         </button>
-      </div>
-      <p className="mt-2 text-[11px] text-slate-400">
+      </CardHeader>
+      <p className={`mt-1 ${LABEL}`}>
         Notices about coronal mass ejections (CMEs). Local radiation at Jezero
         remains unassessed.
       </p>
@@ -84,77 +116,100 @@ export default function SpaceWeather({ weather, refresh }) {
       )}
       <p
         id="space-weather-status"
-        className={`mt-2 text-xs ${historical ? "text-amber-500" : "text-slate-400"}`}
+        className={`mt-3 flex items-center gap-2 text-xs font-medium transition-colors duration-300 ${historical ? "text-amber-500" : "text-slate-400"}`}
       >
-        {loading
-          ? "Loading NASA notifications"
-          : historical
-            ? "Historical demo"
-            : weather.status === "empty"
-              ? "No CME notifications in queried period"
-              : "NASA response"}
+        <StatusDot tone={STATUS_TONE[weather.status]} pulse={loading} />
+        <span key={weather.status} className="motion-safe:animate-hud-fade">
+          {loading
+            ? "Loading NASA notifications"
+            : historical
+              ? "Historical demo"
+              : weather.status === "empty"
+                ? "No CME notifications in queried period"
+                : "NASA response"}
+        </span>
       </p>
-      <p className="mt-1 text-[11px] text-slate-400">
+      <p className={`mt-1 ${LABEL}`}>
         Source:{" "}
         <a
           href="https://ccmc.gsfc.nasa.gov/tools/DONKI/"
           target="_blank"
           rel="noopener noreferrer"
-          className="rounded text-cyan-500 underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
+          className={LINK}
         >
           NASA DONKI
         </a>
         {historical ? " · Historical example" : ""}
       </p>
-      <dl className="mt-2 space-y-1 text-[11px] text-slate-400">
+      <dl
+        className={`mt-3 grid grid-cols-1 gap-2 text-[11px] text-slate-400 ${INSET}`}
+      >
         <div>
           <dt>Queried period (UTC)</dt>
-          <dd id="space-weather-period" className="text-slate-50">
+          <dd
+            id="space-weather-period"
+            className="mt-0.5 font-mono text-slate-50 tabular-nums"
+          >
             {weather.period.startDate} – {weather.period.endDate}
           </dd>
         </div>
         <div>
           <dt>Query attempt (UTC)</dt>
-          <dd id="space-weather-attempt" className="text-slate-50">
+          <dd
+            id="space-weather-attempt"
+            className="mt-0.5 font-mono text-slate-50 tabular-nums"
+          >
             {weather.attemptedAt
               ? utcTime(weather.attemptedAt, true)
               : "Pending initial query"}
           </dd>
         </div>
       </dl>
+      {loading && (
+        <div aria-hidden="true" className="mt-3 space-y-2">
+          <div className="h-3 w-2/3 rounded bg-slate-800 motion-safe:animate-pulse" />
+          <div className="h-3 w-1/2 rounded bg-slate-800 motion-safe:animate-pulse" />
+        </div>
+      )}
       {historical && (
-        <p id="space-weather-error" className="mt-2 text-[11px] text-amber-500">
+        <p id="space-weather-error" className={`mt-3 ${ALERT.warning}`}>
           Current query unavailable. {weather.error} Displaying a historical
           NASA example, not a current event.
         </p>
       )}
       {weather.notifications.length > 0 && (
-        <ol className="mt-3 space-y-3">
-          {weather.notifications.map((notification) => (
+        <ol className="mt-3 space-y-2">
+          {weather.notifications.map((notification, index) => (
             <li
               key={notification.messageID}
-              className="min-w-0 border-t border-slate-800 pt-2"
+              className={`min-w-0 ${INSET} motion-safe:animate-hud-enter`}
+              style={{ animationDelay: `${index * 60}ms` }}
             >
               <a
                 href={notification.messageURL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="rounded font-mono text-[11px] text-cyan-500 underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
+                className={`inline-flex items-center gap-1 font-mono text-[11px] ${LINK}`}
                 aria-label={`Open NASA notification ${notification.messageID}`}
               >
                 {notification.messageID}
+                <Icon name="external" className="size-3" />
               </a>
               <time
                 dateTime={notification.messageIssueTime}
-                className="mt-0.5 block text-[11px] text-slate-400"
+                className="mt-0.5 block font-mono text-[11px] text-slate-400 tabular-nums"
               >
                 {utcTime(notification.messageIssueTime)}
               </time>
-              <details className="mt-1 text-[11px] leading-relaxed text-slate-400">
-                <summary className="hud-control cursor-pointer rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500">
+              <details className="mt-1.5 text-[11px] leading-relaxed text-slate-400">
+                <summary className={SUMMARY}>
+                  <Icon
+                    name="chevron"
+                    className="size-3 transition-transform duration-200 ease-hud group-open:rotate-90"
+                  />
                   {historical ? "NASA message excerpt" : "NASA message text"}
                 </summary>
-                <p className="mt-1 whitespace-pre-wrap [overflow-wrap:anywhere] select-text">
+                <p className="hud-scroll mt-1 max-h-48 overflow-y-auto pr-1 whitespace-pre-wrap [overflow-wrap:anywhere] select-text motion-safe:animate-hud-fade">
                   {notification.messageBody}
                 </p>
               </details>

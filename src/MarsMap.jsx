@@ -7,6 +7,8 @@ import {
   JEZERO_CRATER_COORDS,
   MARS_BOUNDS,
 } from "./evaModel.js";
+import { Icon, StatusDot } from "./HudKit.jsx";
+import { FLOATING_PANEL, LAYER_BUTTON } from "./hudStyles.js";
 
 const VIKING_OPTICAL_TILE_URL =
   "https://trek.nasa.gov/tiles/Mars/EQ/Mars_Viking_MDIM21_ClrMosaic_global_232m/1.0.0//default/default028mm/{z}/{y}/{x}.jpg";
@@ -33,6 +35,12 @@ const LAYER_OPTIONS = [
   { id: "blended", label: "BLENDED" },
   { id: "ctx", label: "CTX Detail" },
 ];
+const LAYER_HINTS = {
+  optical: "Viking color mosaic · 232 m/px",
+  elevation: "MOLA colorized shaded relief · 463 m/px",
+  blended: "Viking mosaic with MOLA relief overlay",
+  ctx: "Historical CTX orbital mosaic · ~5 m/px",
+};
 const SOURCE_LABELS = {
   optical: "Viking optical",
   elevation: "MOLA elevation",
@@ -496,32 +504,50 @@ export default function MarsMap({
         <div
           role="group"
           aria-label="Map data layer"
-          className="hud-panel pointer-events-auto grid grid-cols-2 gap-1 rounded-lg border border-slate-800 bg-slate-950/90 p-1 backdrop-blur-sm sm:flex"
+          className={`pointer-events-auto grid grid-cols-2 gap-1 p-1 motion-safe:animate-hud-fade lg:flex ${FLOATING_PANEL}`}
         >
           {LAYER_OPTIONS.map(({ id, label }) => (
             <button
               key={id}
               type="button"
+              title={LAYER_HINTS[id]}
               aria-pressed={id === activeLayer}
               onClick={() => onLayerChange(id)}
-              className="hud-control cursor-pointer rounded bg-slate-900 px-2 py-1 text-[11px] font-semibold tracking-wider text-slate-400 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-cyan-500 aria-pressed:bg-cyan-500 aria-pressed:text-slate-950 sm:px-2.5 sm:text-xs"
+              className={LAYER_BUTTON}
             >
+              <Icon name={id} className="hidden size-3.5 lg:block" />
               {label}
             </button>
           ))}
         </div>
         <div
           aria-label="Imagery source"
-          className="hud-panel pointer-events-auto rounded-lg border border-slate-800 bg-slate-950/90 px-2.5 py-2 text-[11px] backdrop-blur-sm"
+          className={`pointer-events-auto px-2.5 py-2 text-[11px] motion-safe:animate-hud-fade ${FLOATING_PANEL}`}
+          style={{ animationDelay: "80ms" }}
         >
-          <p className="text-slate-50">
-            {SOURCE_LABELS[activeLayer]} · Zoom {zoom}
+          <p className="flex items-center gap-2 text-slate-50">
+            <span>{SOURCE_LABELS[activeLayer]}</span>
+            <span className="rounded border border-slate-800 bg-slate-900 px-1.5 font-mono text-[10px] text-slate-400 tabular-nums">
+              Zoom {zoom}
+            </span>
           </p>
           <p
             role="status"
-            className={`mt-0.5 ${!loading && (unavailable || partial) ? "text-amber-500" : "text-slate-400"}`}
+            className={`mt-1 flex items-center gap-2 transition-colors duration-300 ${!loading && (unavailable || partial) ? "text-amber-500" : "text-slate-400"}`}
           >
-            {message}
+            <StatusDot
+              tone={
+                loading
+                  ? "accent"
+                  : unavailable || partial
+                    ? "warning"
+                    : "available"
+              }
+              pulse={loading}
+            />
+            <span key={message} className="motion-safe:animate-hud-fade">
+              {message}
+            </span>
           </p>
           {activeLayer === "ctx" && (
             <p className="mt-0.5 text-slate-400">Preliminary / uncontrolled</p>
