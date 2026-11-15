@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useImperativeHandle, useRef, useState } from "react";
 import L from "leaflet";
+import { createEnvelope, JEZERO_CRATER_COORDS } from "./evaModel.js";
 
-const JEZERO_CRATER_COORDS = [18.38, 77.58];
 const VIKING_OPTICAL_TILE_URL =
   "https://trek.nasa.gov/tiles/Mars/EQ/Mars_Viking_MDIM21_ClrMosaic_global_232m/1.0.0//default/default028mm/{z}/{y}/{x}.jpg";
 const MOLA_ELEVATION_TILE_URL =
@@ -37,12 +37,20 @@ const HABITAT_ICON = L.divIcon({
   </svg>`,
 });
 
-export default function MarsMap({ activeLayer = "optical" }) {
+export default function MarsMap({
+  activeLayer = "optical",
+  radiusMeters,
+  envelopeStatus,
+  reservesPanelRef,
+  ref,
+}) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const opticalLayerRef = useRef(null);
   const elevationLayerRef = useRef(null);
   const ctxLayerRef = useRef(null);
+  const envelopeRef = useRef(null);
+  const sourcePanelRef = useRef(null);
   const [zoom, setZoom] = useState(6);
   const [availability, setAvailability] = useState({
     optical: "loading",
@@ -174,6 +182,12 @@ export default function MarsMap({ activeLayer = "optical" }) {
     opticalLayerRef.current = opticalLayer;
     elevationLayerRef.current = elevationLayer;
     ctxLayerRef.current = ctxLayer;
+    envelopeRef.current = L.polygon([], {
+      className: "eva-return-envelope",
+      interactive: false,
+      weight: 2,
+      fillOpacity: 0.06,
+    });
     map.on("zoomend", () => setZoom(map.getZoom()));
 
     return () => {
@@ -184,8 +198,87 @@ export default function MarsMap({ activeLayer = "optical" }) {
       opticalLayerRef.current = null;
       elevationLayerRef.current = null;
       ctxLayerRef.current = null;
+      envelopeRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const envelope = envelopeRef.current;
+    if (!map || !envelope) return;
+    envelope.setLatLngs(createEnvelope(radiusMeters));
+    envelope.setStyle({
+      color:
+        envelopeStatus === "warning"
+          ? "#F59E0B"
+          : envelopeStatus === "empty"
+            ? "#EF4444"
+            : "#10B981",
+    });
+    if (radiusMeters > 0) {
+      if (!map.hasLayer(envelope)) envelope.addTo(map);
+    } else if (map.hasLayer(envelope)) {
+      map.removeLayer(envelope);
+    }
+  }, [radiusMeters, envelopeStatus]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      showEnvelope() {
+        const map = mapRef.current;
+        const envelope = envelopeRef.current;
+        if (!map || !envelope || !map.hasLayer(envelope)) return;
+        map.invalidateSize({ pan: false });
+        const container = map.getContainer();
+        const bounds = container.getBoundingClientRect();
+        const controls = [
+          sourcePanelRef.current,
+          container.querySelector(".leaflet-control-zoom"),
+          container
+            .closest("main")
+            .querySelector('[aria-label="Map data layer"]'),
+        ];
+        const overlays = controls
+          .filter(Boolean)
+          .map((element) => element.getBoundingClientRect());
+        let top =
+          Math.max(...overlays.map((overlay) => overlay.bottom)) -
+          bounds.top +
+          12;
+        let left = 12;
+        const panel = reservesPanelRef.current?.getBoundingClientRect();
+        const right =
+          panel && panel.top < bounds.bottom && panel.bottom > bounds.top
+            ? bounds.right - panel.left + 12
+            : 12;
+        const attribution = container
+          .querySelector(".leaflet-control-attribution")
+          .getBoundingClientRect();
+        const bottom = bounds.bottom - attribution.top + 12;
+        // Short landscape viewports have more room beside the top overlays.
+        if (bounds.height - top - bottom < 16) {
+          top = 12;
+          left =
+            Math.max(...overlays.map((overlay) => overlay.right)) -
+            bounds.left +
+            12;
+        }
+        if (
+          bounds.width - left - right <= 0 ||
+          bounds.height - top - bottom <= 0
+        )
+          return;
+        map.fitBounds(envelope.getBounds(), {
+          paddingTopLeft: [left, top],
+          paddingBottomRight: [right, bottom],
+          maxZoom: MAX_ZOOM,
+          animate: false,
+        });
+      },
+    }),
+    [reservesPanelRef],
+  );
 
   useEffect(() => {
     const map = mapRef.current;
@@ -256,6 +349,7 @@ export default function MarsMap({ activeLayer = "optical" }) {
     <div className="relative h-full w-full">
       <div ref={containerRef} className="h-full w-full bg-slate-950" />
       <div
+        ref={sourcePanelRef}
         aria-label="Imagery source"
         className="absolute top-20 left-14 z-[1000] max-w-[calc(100%-4.25rem)] rounded-lg border border-slate-800 bg-slate-950/90 px-2.5 py-2 text-[11px] backdrop-blur-sm sm:top-14"
       >

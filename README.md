@@ -7,7 +7,7 @@ Tactical hyperlocalized EVA navigation HUD for Mars surface exploration, built f
 **Martian Map** focuses on **Jezero Crater** and integrates **3 official NASA data layers** with survival-oriented UX mechanics for Extravehicular Activities (EVAs):
 
 - **Multi-Layer Mars Visualization:** Combines Viking optical imagery and MOLA elevation tiles from **NASA Mars Trek WMTS** with solar radiation/CME alerts from the **NASA DONKI API**.
-- **Point of No Return (Autonomy Circle):** Renders a dynamic safe return radius around the Habitat based on suit oxygen/battery reserves and active space weather conditions, flagging routes that enter high-risk slopes or exceed safe return margins.
+- **Modeled EVA Return Envelope:** Illustrates outward-and-return travel reach from simulated oxygen/battery budgets, a protected reserve and explicit demo assumptions. Terrain, routes and space weather are not evaluated by this model.
 - **Pressurized Glove Mode:** Toggles between detailed mission planning and an oversized, high-contrast interface designed for astronauts wearing pressurized spacesuit gloves.
 
 ## Tech Stack
@@ -71,6 +71,55 @@ This imagery **cannot certify safe EVA routes or measure terrain slopes**. It do
 Review capture: [CTX Detail at Jezero](output/playwright/ctx-jezero.png).
 
 Browser review used Chromium at 1440 × 900, 768 × 1024, 390 × 844 and 320 × 568. It covered CTX at display zooms 11–13, switching all four modes at zoom 13, keyboard activation/focus, panning, and preservation of non-default Oxygen/Battery values. Matching the central level-10 tile's decoded pixels against the displayed image placed the Habitat coordinate within half a display pixel of the expected tile location; this checks grid alignment, not scientific registration accuracy. HTTP 503, an undecodable PNG and a delayed response were simulated interactively to verify fallback and the request timeout. Physical devices, other browser engines and worldwide coverage were not verified.
+
+## Illustrative EVA return model
+
+The **Simplified model** panel and perimeter are an illustration, not an operational safety boundary. These resource capacities, speed and reserve are demo assumptions chosen for the application; they are **not NASA specifications or parameters of a real suit**.
+
+| Demonstration assumption | Value |
+| --- | --- |
+| Oxygen at full capacity | 240 minutes |
+| Battery at full capacity | 180 minutes |
+| Constant walking speed | 2,000 metres/hour (2 km/h) |
+| Protected reserve | 20% of each resource's **total** capacity |
+
+For simulated percentages `O` and `B` in 0–100:
+
+```text
+oxygenBudgetMinutes = 240 * max(0, O - 20) / 100
+batteryBudgetMinutes = 180 * max(0, B - 20) / 100
+excursionBudgetMinutes = min(oxygenBudgetMinutes, batteryBudgetMinutes)
+radiusMeters = excursionBudgetMinutes * (2000 / 60) / 2
+```
+
+The 20% is subtracted as **20 percentage points of full capacity**, not 20% of the resource remaining. `Excursion budget` covers both travel directions; the factor of two allocates half to outward travel and half to return. `Estimated reach` is the corresponding one-way radius from the Habitat. `Limiting resource` identifies the smaller time budget, or `Both` for equal budgets. Reaching the protected reserve in either resource gives **zero excursion budget even though resources may remain**.
+
+| Oxygen | Battery | Excursion budget | Radius | Limiting resource |
+| --- | --- | --- | --- | --- |
+| 100% | 100% | 144 min | 2,400 m | Battery |
+| 100% | 50% | 54 min | 900 m | Battery |
+| 30% | 100% | 24 min | 400 m | Oxygen |
+| 29% | 100% | 21.6 min | 360 m | Oxygen |
+| 20% or less | Any | 0 min | 0 m | Oxygen, or Both if both budgets are zero |
+| Any | 20% or less | 0 min | 0 m | Battery, or Both if both budgets are zero |
+
+Budgets are derived in `src/evaModel.js` from the existing App state; they are not stored separately. Available budgets use green, a positive budget with either resource below 30% uses amber, and zero budget uses red with **No excursion budget**. The original individual reserve warnings remain independent. `Reset reserves` restores 100/100, 144 min and 2,400 m without changing the layer or view. Unrounded numbers drive geometry; the HUD formats numbers for readability.
+
+### Mars geometry and map behavior
+
+The planetary radius is **3,396,190 metres**, taken from the `GCS_Mars_2000_Sphere` WKT in the [CTX provider metadata](https://astro.arcgis.com/arcgis/rest/services/OnMars/CTX/MapServer?f=pjson), rechecked on 2026-11-15. This geometric reference comes from the imagery provider; it does not validate the demo resource assumptions. Both forward spherical destinations and the haversine distance calculation share that radius. Leaflet global objects and Earth distance settings remain untouched; `L.CRS.EPSG4326` is used only for display.
+
+For each of 96 equally spaced bearings, the model uses angular distance `radiusMeters / MARS_RADIUS_METERS` to calculate a destination from the Habitat at 18.38 N, 77.58 E. Leaflet renders these vertices with one `L.polygon`; its line segments approximate the circular envelope. The fill opacity is 0.06 and the polygon is non-interactive, so it does not capture map clicks. Changes update the existing polygon's geometry/style without rebuilding the map or moving the view. At zero radius, the polygon is removed while the Habitat marker remains.
+
+Only **Show envelope** fits the perimeter into the view. It measures the current layer/source overlays, attribution and reserve panel to leave them outside the fitted perimeter area, and respects the existing maximum display zoom. The button is disabled when there is no envelope. A height-limited reserve panel scrolls internally on smaller viewports; its assumptions remain available through the keyboard-accessible **Model assumptions** disclosure. CTX and the three existing modes retain their imagery, native zoom limits and fallback behavior.
+
+Numeric verification covered all 10,201 integer Oxygen/Battery combinations. Their 121 distinct radii include zero; 11,520 generated vertices at the 120 positive radii had a maximum absolute spherical-distance error of **4.17 × 10⁻⁹ m** relative to their requested radius. This is floating-point consistency on the assumed sphere, not a claim about map registration, walking accuracy or physical suit performance.
+
+The model assumes constant walking speed and resource consumption, direct travel and no stops. It does not evaluate terrain, slopes, obstacles, radiation, science tasks, destinations or actual routes. Real navigation and life-support decisions require information that this illustration does not provide.
+
+Interactive Chromium review covered the required numeric cases, reset, zero-budget removal, one persistent map instance, positive-budget geometry updates, and reserve preservation across all four imagery modes. Show envelope kept the perimeter clear of HUD panels at 1440 × 900, 768 × 1024, 390 × 844, 320 × 568 and 667 × 375; short landscape framing uses space beside the overlays. Keyboard activation and visible focus were checked for the controls, framing button and assumptions disclosure. Opening assumptions and reaching zero budget did not resize or move the mobile map. CTX fallback was checked with both the damaged service-level-11 images and a simulated HTTP 503. Physical devices, other browser engines and screen readers were not verified. No test files or testing frameworks were added.
+
+Review captures: [full reserves](output/playwright/envelope-full.png), [reduced reserves](output/playwright/envelope-reduced.png), [zero excursion budget with resources remaining](output/playwright/envelope-zero.png).
 
 ## Team — Tuxonauts
 

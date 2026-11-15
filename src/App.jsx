@@ -1,5 +1,10 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import MarsMap from "./MarsMap.jsx";
+import {
+  calculateExcursion,
+  MODEL_ASSUMPTIONS,
+  RESERVE_WARNING_PERCENT,
+} from "./evaModel.js";
 
 const LAYER_OPTIONS = [
   { id: "optical", label: "OPTICAL" },
@@ -16,6 +21,17 @@ const RESERVE_OPTIONS = [
 export default function App() {
   const [activeLayer, setActiveLayer] = useState("optical");
   const [reserves, setReserves] = useState({ oxygen: 100, battery: 100 });
+  const mapRef = useRef(null);
+  const reservesPanelRef = useRef(null);
+  const excursion = calculateExcursion(reserves);
+  const modelColor =
+    excursion.status === "empty"
+      ? "text-red-500"
+      : excursion.status === "warning"
+        ? "text-amber-500"
+        : "text-emerald-500";
+  const formatNumber = (value) =>
+    value.toLocaleString("en-US", { maximumFractionDigits: 1 });
 
   return (
     <div className="flex h-dvh w-full flex-col overflow-hidden bg-slate-950 text-slate-50 select-none">
@@ -62,12 +78,19 @@ export default function App() {
               );
             })}
           </div>
-          <MarsMap activeLayer={activeLayer} />
+          <MarsMap
+            ref={mapRef}
+            activeLayer={activeLayer}
+            radiusMeters={excursion.radiusMeters}
+            envelopeStatus={excursion.status}
+            reservesPanelRef={reservesPanelRef}
+          />
         </div>
 
         <section
+          ref={reservesPanelRef}
           aria-labelledby="suit-reserves-title"
-          className="z-[1000] shrink-0 border-t border-slate-800 bg-slate-950/90 p-3 backdrop-blur-sm md:absolute md:top-3 md:right-3 md:w-64 md:rounded-lg md:border"
+          className="z-[1000] h-[45dvh] shrink-0 overflow-y-auto border-t border-slate-800 bg-slate-950/90 p-3 backdrop-blur-sm md:absolute md:top-3 md:right-3 md:h-auto md:max-h-[calc(100%-1.5rem)] md:w-72 md:rounded-lg md:border"
         >
           <div className="flex items-center justify-between gap-2">
             <h2 id="suit-reserves-title" className="text-sm font-semibold">
@@ -92,7 +115,7 @@ export default function App() {
             {RESERVE_OPTIONS.map(({ id, label }) => {
               const value = reserves[id];
               const isCritical = value === 0;
-              const isLow = value < 30;
+              const isLow = value < RESERVE_WARNING_PERCENT;
               const status = isCritical
                 ? "Critical · Depleted"
                 : isLow
@@ -147,6 +170,99 @@ export default function App() {
                 </div>
               );
             })}
+          </div>
+
+          <div className="mt-3 border-t border-slate-800 pt-3">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-xs font-semibold text-slate-50">
+                Simplified model
+              </h3>
+              <button
+                type="button"
+                disabled={excursion.radiusMeters === 0}
+                aria-describedby="model-status"
+                onClick={() => mapRef.current?.showEnvelope()}
+                className="cursor-pointer rounded border border-slate-800 bg-slate-900 px-2 py-1.5 text-xs text-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500 disabled:cursor-not-allowed disabled:text-slate-400 [@media(hover:hover)_and_(pointer:fine)]:enabled:hover:border-cyan-500"
+              >
+                Show envelope
+              </button>
+            </div>
+            <p
+              id="model-status"
+              role="status"
+              className={`mt-1 text-xs ${modelColor}`}
+            >
+              {excursion.status === "empty"
+                ? "No excursion budget"
+                : excursion.status === "warning"
+                  ? "Low reserves · Budget available"
+                  : "Excursion budget available"}
+            </p>
+            <dl
+              aria-label="Modeled excursion summary"
+              className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2 text-xs"
+            >
+              <div>
+                <dt className="text-[11px] text-slate-400">Estimated reach</dt>
+                <dd
+                  id="estimated-reach"
+                  className={`mt-0.5 font-mono tabular-nums ${modelColor}`}
+                >
+                  {excursion.radiusMeters >= 1000
+                    ? `${formatNumber(excursion.radiusMeters / 1000)} km`
+                    : `${formatNumber(excursion.radiusMeters)} m`}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[11px] text-slate-400">Excursion budget</dt>
+                <dd
+                  id="excursion-budget"
+                  className={`mt-0.5 font-mono tabular-nums ${modelColor}`}
+                >
+                  {formatNumber(excursion.excursionBudgetMinutes)} min
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[11px] text-slate-400">
+                  Limiting resource
+                </dt>
+                <dd id="limiting-resource" className="mt-0.5 text-slate-50">
+                  {excursion.limitingResource}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[11px] text-slate-400">
+                  Protected reserve
+                </dt>
+                <dd className="mt-0.5 text-slate-50">
+                  {MODEL_ASSUMPTIONS.protectedReservePercent}% of full capacity
+                </dd>
+              </div>
+            </dl>
+            {excursion.status === "empty" && (
+              <p className="mt-2 text-[11px] text-red-500">
+                Protected reserve reached; resources may still remain.
+              </p>
+            )}
+            <details className="mt-2 text-[11px] leading-relaxed text-slate-400">
+              <summary className="cursor-pointer rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500">
+                Model assumptions
+              </summary>
+              <p className="mt-1">
+                Illustrative assumptions, not NASA specifications or a real
+                suit: Oxygen at full capacity{" "}
+                {MODEL_ASSUMPTIONS.oxygenCapacityMinutes} min; Battery at full
+                capacity {MODEL_ASSUMPTIONS.batteryCapacityMinutes} min; walking
+                speed {MODEL_ASSUMPTIONS.walkingMetersPerHour / 1000} km/h.
+                Subtract {MODEL_ASSUMPTIONS.protectedReservePercent} percentage
+                points of each resource's full capacity, then split the limiting
+                time between outward and return travel. At the protected
+                reserve, excursion budget is zero even with resources remaining.
+                Assumes constant speed and consumption, direct travel and no
+                stops. Excludes terrain, slopes, obstacles, radiation and
+                science tasks.
+              </p>
+            </details>
           </div>
         </section>
       </main>
