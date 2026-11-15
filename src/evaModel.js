@@ -168,9 +168,15 @@ export function marsDistanceMeters(from, to) {
   );
 }
 
-export function evaluateTarget(target, excursion) {
+export function evaluateTarget(target, excursion, oneWayDistanceMeters) {
   if (!isMarsCoordinate(target)) return null;
-  const distanceMeters = marsDistanceMeters(JEZERO_CRATER_COORDS, target);
+  if (
+    oneWayDistanceMeters !== undefined &&
+    (!Number.isFinite(oneWayDistanceMeters) || oneWayDistanceMeters < 0)
+  )
+    return null;
+  const directDistanceMeters = marsDistanceMeters(JEZERO_CRATER_COORDS, target);
+  const distanceMeters = oneWayDistanceMeters ?? directDistanceMeters;
   const roundTripMinutes =
     (2 * distanceMeters) / (MODEL_ASSUMPTIONS.walkingMetersPerHour / 60);
   const timeMarginMinutes = excursion.excursionBudgetMinutes - roundTripMinutes;
@@ -195,6 +201,7 @@ export function evaluateTarget(target, excursion) {
   };
   return {
     distanceMeters,
+    directDistanceMeters,
     roundTripMinutes,
     timeMarginMinutes,
     radiation: doseBudget

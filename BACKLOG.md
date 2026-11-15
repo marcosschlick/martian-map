@@ -51,4 +51,4 @@ A hyperlocalized tactical EVA navigation HUD centered on **Jezero Crater** (`18.
 
 ### Local Science and Demonstration Traverse
 - [x] **Sourced Science Objective and Destination:** Identify an image-localized Jezero observation point, distinguish orbital interpretation from a proposed astronaut activity, expose provenance, and select it with the existing budget estimate without changing Habitat/suit assumptions.
-- [ ] **Documented Obstacle-Aware Demo Traverse:** Interpret a bounded local exclusion from georeferenced imagery, disclose its project-defined limits, check complete traverse segments, and evaluate the proposed out-and-back path with the existing Mars resource model.
+- [x] **Documented Obstacle-Aware Demo Traverse:** Interpret a bounded local exclusion from georeferenced imagery, disclose its project-defined limits, check complete traverse segments, and evaluate the proposed out-and-back path with the existing Mars resource model. Desktop/tablet/390 px phone interactions are verified; very short viewport framing remains limited as documented in README.

@@ -301,6 +301,11 @@ body,
   border-radius: 6px;
 }
 
+.leaflet-tooltip.project-exclusion-label {
+  color: #f59e0b !important;
+  border-color: #f59e0b !important;
+}
+
 .leaflet-bar {
   border: 1px solid #1e293b !important;
   border-radius: 0.5rem !important;

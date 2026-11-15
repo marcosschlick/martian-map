@@ -8,6 +8,7 @@ Tactical hyperlocalized EVA navigation HUD for Mars surface exploration, built f
 
 - **Multi-Layer Mars Visualization:** Combines Viking optical imagery, MOLA elevation tiles and the historical CTX mosaic.
 - **Local Science Objective:** Select an image-localized crater observation point with a proposed astronaut activity and source provenance.
+- **Suggested Traverse:** Compare direct travel with a curated detour around one project-interpreted crater exclusion, including the longer out-and-back budget.
 - **Space Weather Context:** Shows NASA DONKI CME notifications with their original issue dates, source links and query availability. These are not local radiation measurements.
 - **Modeled EVA Return Envelope and Target:** Illustrates outward-and-return travel reach from simulated oxygen/battery budgets and evaluates a selected target's direct travel budget. An optional radiation scenario adds a demo dose cap.
 - **Pressurized Glove Mode:** Use **Glove mode** in the header for 44 px controls, opaque panels, and high-contrast active and keyboard focus states. The toggle preserves the current map, target, and reserves.
@@ -187,6 +188,55 @@ Reference tile, fetched and decoded on 2026-11-15: [unchanged local snapshot](pu
 The unchanged Habitat and Mars sphere give **2,315.646731 m one way**, **138.938804 min round trip** and **+5.061196 min** at 100/100 reserves with radiation simulation off. This fits the illustrative 2,400 m radial budget. Neither the Habitat nor suit assumptions were moved to obtain that result. **Science work and stops are not included in the travel budget**; this is a proposed observation activity, not a complete mission timeline.
 
 Interactive Chromium verification covered button and marker selection by keyboard, visible marker focus, correct coordinates/budget, free-target reassociation and clearing. Review capture: [science objective and destination](output/playwright/science-objective.png).
+
+## Suggested traverse and project exclusion
+
+For the selected science site, **Direct estimate** and **Suggested traverse** are separate choices. A direct estimate is a displacement/time reference and visibly warns that it crosses the project exclusion. Suggested traverse draws a solid line through three intermediate points north of the crater. The amber **Project exclusion** contour appears while the science destination is selected. Free-target selection and Clear target remove this local review and traverse mode; reselecting the same science marker retains the current mode. No general route search is performed.
+
+### Exclusion provenance and review coverage
+
+Tuxonauts manually traced the visible outer rim/interior in the four georeferenced level-12 CTX images identified above, using the level-10 reference grid for recording the contour. The outline includes approximately 2–5 overview pixels (roughly 40–100 m) of additional planning space in most directions; it is a hand-drawn conservative contour, not a fixed-distance geodesic buffer. The policy is to keep outside this feature until ground conditions can be assessed. **This is a project-defined exclusion, not a published NASA hazard polygon or a measured slope threshold.**
+
+The closed contour's continuous reference-pixel offsets, in order, are:
+
+```text
+(228,254), (239,247), (254,243), (270,242), (282,247),
+(289,253), (284,266), (278,277), (268,284), (253,288),
+(239,287), (229,281), (226,269), then back to (228,254)
+```
+
+The reviewed image window runs from reference offsets **(165,218) to (306,294)**, approximately **2.7 × 1.5 km**. Only this one crater contour is included in the exclusion check. Other craters, rocks, loose material, slopes and current surface conditions remain unassessed. Manual contour/point placement is approximately 50 m relative to the mosaic, with unquantified absolute registration error. Geometric clearance from this contour does not establish walking suitability or an operational safety margin. [Annotated project interpretation](public/science/ctx-interpretation.png) shows the outline, direct segment and detour on the source pixels; its 1st–99th percentile stretch is only for visual inspection.
+
+The NASA [Ingenuity terrain article](https://www.nasa.gov/solar-system/nasas-mars-helicopter-reveals-intriguing-terrain-for-rover-team/) documents rover entrapment concerns at Séítah dunes elsewhere in Jezero. It does not locate this crater or establish a human walking limit. No Séítah boundary or vehicle-specific threshold was transferred to this project exclusion.
+
+Level-12 source SHA-256 values, fetched on 2026-11-15, allow checking the inspected source responses:
+
+| Service tile | SHA-256 |
+| --- | --- |
+| 12/1629/5861 | `8e50c49873c36695e32d0dcc95aeffd42b03e85e4818eadfd822325f5ad11cd4` |
+| 12/1629/5862 | `605ad23f4db8b0e14a85daaeccc4e3404371c413b777ca827358491196a5ab6a` |
+| 12/1630/5861 | `f3c42dc51f8b1e8ac0ed09b746458b24d1c5e7c02d3aa8dfbf0a3c6bf7c0d300` |
+| 12/1630/5862 | `343950ae776f0fae471092c62f784ad80162cb6f1baf01b72b623c42932ecbd3` |
+
+### Waypoints, complete-segment checks and budget
+
+The outbound path starts at the unchanged Habitat, passes reference offsets **(222,236), (275,234), (298,246)** and ends at the science point **(290,260)**. Coordinates use the same pixel-to-angle formula as the destination. `src/scienceData.js` checks the entire rendered segments against every polygon edge in the local angular/image plane, including boundary contact and collinear overlap, and checks point containment. All waypoints must lie inside the rectangular review window; because it is convex, the straight segments stay inside it too. The route must connect the Habitat to the science point. A failed check yields **Suggested traverse unavailable**, with no traverse line or numerical travel evaluation. It does not silently substitute direct travel.
+
+Length uses the sum of the **Mars-sphere distances between successive waypoints**, reusing the existing 3,396,190 m radius. These are waypoint segment estimates, not measured ground-following distances. **Return follows the same waypoints in reverse**, so travel time is twice the one-way length divided by the existing 2 km/h speed. The same resource budget, protected reserve and optional dose simulation then determine the margin. Science work and stops remain excluded.
+
+| Calculation reference at 100/100, radiation simulation off | Direct estimate | Suggested traverse |
+| --- | --- | --- |
+| One-way length | 2,315.646731 m | 2,772.348210 m |
+| Outbound time | 69.469402 min | 83.170446 min |
+| Return time | 69.469402 min | 83.170446 min |
+| Round-trip time | 138.938804 min | 166.340893 min |
+| Time margin against 144 min | +5.061196 min | -22.340893 min |
+
+The destination lies within the 2,400 m radial envelope, while the detour exceeds the modeled budget. The radial envelope remains a **direct-reach reference**, not a contour of reachable locations along the suggested traverse. Extra digits above are calculation references, not physical accuracy claims. With Battery at 50%, the budget is 54 min and the same traverse margin is -112.340893 min; Reset reserves restores the 144-minute budget without changing the destination or mode.
+
+Independent Python haversine calculations agreed with the application to under 0.000001 m. Matplotlib's independent complete-path intersection check found no crossing for all four suggested segments and a crossing for the direct segment. Invalid coordinates, a point inside/on the exclusion and an out-of-window route were rejected. Interactive Chromium checks covered mode switching, keyboard selection, reduced/depleted reserves, reset, clearing/free selection, and all four imagery modes; selection changes did not move the map or issue extra DONKI queries. Captures: [suggested traverse and exclusion](output/playwright/suggested-traverse.png), [mobile traverse](output/playwright/suggested-traverse-mobile.png).
+
+A browser-only waypoint fixture placed an intermediate point inside the contour: **Suggested traverse unavailable** appeared, with no line or numerical travel fields. This was a controlled data scenario, not a change to the stored terrain interpretation. Desktop 1440 × 900, tablet 768 × 1024 and phone 390 × 844 were reviewed. At **320 × 568**, the shared HUD-aware framing can leave only a few pixels for the study area and zoom below the science marker's display threshold; a taller viewport is needed to inspect the complete map proposal comfortably. This framing limitation remains pending rather than changing the existing HUD/glove layout in this block. Physical devices and other browser engines remain unverified.
 
 ## Radiation dose simulation
 

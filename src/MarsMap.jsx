@@ -9,7 +9,11 @@ import {
 } from "./evaModel.js";
 import { Icon, StatusDot } from "./HudKit.jsx";
 import { FLOATING_PANEL, LAYER_BUTTON } from "./hudStyles.js";
-import { SCIENCE_AREA_BOUNDS, SCIENCE_SITE } from "./scienceData.js";
+import {
+  CRATER_EXCLUSION,
+  SCIENCE_AREA_BOUNDS,
+  SCIENCE_SITE,
+} from "./scienceData.js";
 
 const VIKING_OPTICAL_TILE_URL =
   "https://trek.nasa.gov/tiles/Mars/EQ/Mars_Viking_MDIM21_ClrMosaic_global_232m/1.0.0//default/default028mm/{z}/{y}/{x}.jpg";
@@ -170,6 +174,9 @@ export default function MarsMap({
   reservesPanelRef,
   target,
   targetTone,
+  scienceSelected,
+  suggestedTraverse,
+  traversePoints,
   onTargetSelect,
   onScienceSelect,
   ref,
@@ -183,6 +190,8 @@ export default function MarsMap({
   const mapControlsRef = useRef(null);
   const targetMarkerRef = useRef(null);
   const directLineRef = useRef(null);
+  const traverseLineRef = useRef(null);
+  const exclusionRef = useRef(null);
   const [zoom, setZoom] = useState(6);
   const [availability, setAvailability] = useState({
     optical: "loading",
@@ -365,6 +374,24 @@ export default function MarsMap({
       dashArray: "6 5",
       interactive: false,
     });
+    traverseLineRef.current = L.polyline([], {
+      className: "eva-suggested-traverse",
+      weight: 3,
+      interactive: false,
+    });
+    exclusionRef.current = L.polygon(CRATER_EXCLUSION.coordinates, {
+      className: "eva-project-exclusion",
+      color: "#F59E0B",
+      weight: 2,
+      dashArray: "6 4",
+      fillOpacity: 0.12,
+      interactive: false,
+    }).bindTooltip("Project exclusion", {
+      permanent: true,
+      direction: "bottom",
+      offset: [0, 12],
+      className: "project-exclusion-label",
+    });
     const handleMapClick = (event) => {
       if (event.originalEvent?.target?.closest?.(".leaflet-control")) return;
       selectTarget(event.latlng);
@@ -385,6 +412,8 @@ export default function MarsMap({
       envelopeRef.current = null;
       targetMarkerRef.current = null;
       directLineRef.current = null;
+      traverseLineRef.current = null;
+      exclusionRef.current = null;
     };
   }, [onTargetSelect, onScienceSelect]);
 
@@ -406,21 +435,47 @@ export default function MarsMap({
 
   useEffect(() => {
     const map = mapRef.current;
+    const exclusion = exclusionRef.current;
+    if (!map || !exclusion) return;
+    if (scienceSelected) {
+      if (!map.hasLayer(exclusion)) exclusion.addTo(map);
+    } else if (map.hasLayer(exclusion)) map.removeLayer(exclusion);
+  }, [scienceSelected]);
+
+  useEffect(() => {
+    const map = mapRef.current;
     const marker = targetMarkerRef.current;
     const line = directLineRef.current;
-    if (!map || !marker || !line) return;
+    const traverse = traverseLineRef.current;
+    if (!map || !marker || !line || !traverse) return;
     if (!target) {
       if (map.hasLayer(marker)) map.removeLayer(marker);
       if (map.hasLayer(line)) map.removeLayer(line);
+      if (map.hasLayer(traverse)) map.removeLayer(traverse);
       return;
     }
     const color = BUDGET_COLORS[targetTone];
-    line.setLatLngs(createDirectReference(target)).setStyle({ color });
+    const activeLine = suggestedTraverse ? traverse : line;
+    const inactiveLine = suggestedTraverse ? line : traverse;
+    if (map.hasLayer(inactiveLine)) map.removeLayer(inactiveLine);
+    if (suggestedTraverse && !traversePoints) {
+      if (map.hasLayer(activeLine)) map.removeLayer(activeLine);
+    } else {
+      activeLine
+        .setLatLngs(
+          suggestedTraverse ? traversePoints : createDirectReference(target),
+        )
+        .setStyle({ color });
+      if (!map.hasLayer(activeLine)) activeLine.addTo(map);
+      activeLine.bringToFront();
+    }
     marker.setLatLng(target).setStyle({ color, fillColor: color });
-    if (!map.hasLayer(line)) line.addTo(map);
+    marker.setTooltipContent(
+      suggestedTraverse ? "Suggested traverse" : "Direct estimate",
+    );
     if (!map.hasLayer(marker)) marker.addTo(map);
     marker.bringToFront();
-  }, [target, targetTone]);
+  }, [target, targetTone, suggestedTraverse, traversePoints]);
 
   useImperativeHandle(
     ref,

@@ -24,7 +24,14 @@ import {
   RESERVE_WARNING_PERCENT,
 } from "./evaModel.js";
 import { useSpaceWeather } from "./useSpaceWeather.js";
-import { SCIENCE_SITE, SCIENCE_SOURCES } from "./scienceData.js";
+import {
+  CRATER_EXCLUSION,
+  DEMO_TRAVERSE_POINTS,
+  DEMO_TRAVERSE_REVIEW,
+  DIRECT_TERRAIN_REVIEW,
+  SCIENCE_SITE,
+  SCIENCE_SOURCES,
+} from "./scienceData.js";
 
 const RESERVE_OPTIONS = [
   { id: "oxygen", label: "Oxygen", budgetKey: "oxygenBudgetMinutes" },
@@ -178,14 +185,20 @@ export default function App() {
   const [selection, setSelection] = useState(null);
   const target = selection?.coordinate ?? null;
   const scienceSelected = selection?.siteId === SCIENCE_SITE.id;
+  const suggestedTraverse = scienceSelected && selection.mode === "traverse";
   const selectFreeTarget = useCallback((coordinate) => {
-    setSelection({ coordinate, siteId: null });
+    setSelection({ coordinate, siteId: null, mode: "direct" });
   }, []);
   const selectScienceTarget = useCallback(() => {
-    setSelection({
-      coordinate: SCIENCE_SITE.coordinate,
-      siteId: SCIENCE_SITE.id,
-    });
+    setSelection((current) =>
+      current?.siteId === SCIENCE_SITE.id
+        ? current
+        : {
+            coordinate: SCIENCE_SITE.coordinate,
+            siteId: SCIENCE_SITE.id,
+            mode: "direct",
+          },
+    );
   }, []);
   const [radiationScenario, setRadiationScenario] = useState("off");
   const [remainingDoseMicroSv, setRemainingDoseMicroSv] = useState(
@@ -199,7 +212,15 @@ export default function App() {
     scenario: radiationScenario,
     remainingDoseMicroSv,
   });
-  const targetEvaluation = evaluateTarget(target, excursion);
+  const traverseUnavailable =
+    suggestedTraverse && !DEMO_TRAVERSE_REVIEW.available;
+  const targetEvaluation = traverseUnavailable
+    ? null
+    : evaluateTarget(
+        target,
+        excursion,
+        suggestedTraverse ? DEMO_TRAVERSE_REVIEW.lengthMeters : undefined,
+      );
   const targetTone = targetEvaluation?.tone ?? "neutral";
   const targetColor = TONE_TEXT[targetTone];
   const modelTone = excursion.status === "empty" ? "danger" : excursion.status;
@@ -265,7 +286,17 @@ export default function App() {
             envelopeStatus={excursion.status}
             reservesPanelRef={reservesPanelRef}
             target={target}
-            targetTone={targetEvaluation?.tone}
+            targetTone={
+              targetEvaluation?.tone ??
+              (traverseUnavailable ? "danger" : undefined)
+            }
+            scienceSelected={scienceSelected}
+            suggestedTraverse={suggestedTraverse}
+            traversePoints={
+              suggestedTraverse && DEMO_TRAVERSE_REVIEW.available
+                ? DEMO_TRAVERSE_POINTS
+                : null
+            }
             onTargetSelect={selectFreeTarget}
             onScienceSelect={selectScienceTarget}
           />
@@ -459,6 +490,44 @@ export default function App() {
                 </a>
               </p>
             </details>
+            <details className="mt-2 text-[11px] leading-relaxed text-slate-400">
+              <summary className={SUMMARY}>
+                <Icon name="chevron" className="size-3" />
+                Terrain review and sources
+              </summary>
+              <p className="mt-2 text-amber-500">{CRATER_EXCLUSION.name}</p>
+              <p className="mt-1">{CRATER_EXCLUSION.reason}</p>
+              <p className="mt-2">
+                Tuxonauts traced one contour in historical CTX imagery (~5
+                m/pixel inspection). This is a proposed walking exclusion, not a
+                published NASA hazard boundary. Slopes, small obstacles and
+                current footing are unassessed.
+              </p>
+              <p className="mt-2">
+                Review covers only the local 2.7 × 1.5 km image window. No
+                general route search is performed.
+              </p>
+              <p className="mt-2">
+                <a
+                  className={LINK}
+                  href={SCIENCE_SOURCES.imagery}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Georeferenced CTX reference
+                </a>
+              </p>
+              <p className="mt-2">
+                <a
+                  className={LINK}
+                  href={`${import.meta.env.BASE_URL}science/ctx-interpretation.png`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Project interpretation diagram
+                </a>
+              </p>
+            </details>
           </section>
 
           <section
@@ -490,6 +559,30 @@ export default function App() {
                 Clear target
               </button>
             </div>
+            {scienceSelected && (
+              <div
+                role="group"
+                aria-label="Travel estimate mode"
+                className="mt-3 flex flex-wrap gap-2"
+              >
+                {[
+                  { id: "direct", label: "Direct estimate" },
+                  { id: "traverse", label: "Suggested traverse" },
+                ].map(({ id, label }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    className={TOGGLE}
+                    aria-pressed={(selection.mode ?? "direct") === id}
+                    onClick={() =>
+                      setSelection((current) => ({ ...current, mode: id }))
+                    }
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
             <p
               id="target-status"
               role="status"
@@ -500,12 +593,37 @@ export default function App() {
                 key={targetEvaluation?.label || "none"}
                 className="motion-safe:animate-hud-fade"
               >
-                {targetEvaluation?.label || "Select an EVA target"}
+                {traverseUnavailable
+                  ? "Suggested traverse unavailable"
+                  : targetEvaluation?.label || "Select an EVA target"}
               </span>
             </p>
             <p className={`mt-1 ${LABEL}`}>
-              Direct estimate · Terrain not evaluated
+              {suggestedTraverse
+                ? "Return retraces outbound waypoints."
+                : "Direct estimate · Terrain not evaluated"}
             </p>
+            {scienceSelected &&
+              !suggestedTraverse &&
+              !DIRECT_TERRAIN_REVIEW.available && (
+                <p className={`mt-2 ${ALERT.warning}`}>
+                  The direct estimate crosses the project exclusion. Budget
+                  status does not assess terrain.
+                </p>
+              )}
+            {suggestedTraverse && (
+              <p
+                id="traverse-review"
+                className={`mt-2 ${traverseUnavailable ? ALERT.danger : LABEL}`}
+              >
+                {DEMO_TRAVERSE_REVIEW.reason}
+              </p>
+            )}
+            {suggestedTraverse && (
+              <p className={`mt-1 ${LABEL}`}>
+                Radial envelope shows direct reach. Science work/stops excluded.
+              </p>
+            )}
             {target && (
               <p id="target-identity" className={`mt-1 ${LABEL}`}>
                 {scienceSelected
@@ -513,7 +631,7 @@ export default function App() {
                   : "Free target · No science site associated"}
               </p>
             )}
-            {!targetEvaluation && (
+            {!target && (
               <p className="mt-2 rounded-md border border-dashed border-slate-800 px-2.5 py-2 text-[11px] leading-relaxed text-slate-400">
                 Click or tap the map to place a target, or pan the map and use
                 its center.
@@ -536,7 +654,11 @@ export default function App() {
                     </dd>
                   </div>
                   <div>
-                    <dt className={LABEL}>Distance</dt>
+                    <dt className={LABEL}>
+                      {suggestedTraverse
+                        ? "Traverse length (one way)"
+                        : "Distance"}
+                    </dt>
                     <dd
                       id="target-distance"
                       className={`${VALUE} ${targetColor}`}
@@ -553,6 +675,41 @@ export default function App() {
                       {formatNumber(targetEvaluation.roundTripMinutes)} min
                     </dd>
                   </div>
+                  {suggestedTraverse && (
+                    <>
+                      <div>
+                        <dt className={LABEL}>Outbound time</dt>
+                        <dd
+                          id="traverse-outbound"
+                          className={`${VALUE} ${targetColor}`}
+                        >
+                          {formatNumber(targetEvaluation.roundTripMinutes / 2)}{" "}
+                          min
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className={LABEL}>Return time</dt>
+                        <dd
+                          id="traverse-return"
+                          className={`${VALUE} ${targetColor}`}
+                        >
+                          {formatNumber(targetEvaluation.roundTripMinutes / 2)}{" "}
+                          min
+                        </dd>
+                      </div>
+                      <div className="col-span-2">
+                        <dt className={LABEL}>Direct displacement</dt>
+                        <dd
+                          id="target-direct-distance"
+                          className={`${VALUE} text-slate-50`}
+                        >
+                          {formatDistance(
+                            targetEvaluation.directDistanceMeters,
+                          )}
+                        </dd>
+                      </div>
+                    </>
+                  )}
                   <div className="col-span-2">
                     <dt className={LABEL}>Time margin</dt>
                     <dd
@@ -719,9 +876,10 @@ export default function App() {
                 Subtract {MODEL_ASSUMPTIONS.protectedReservePercent} percentage
                 points of full capacity from each suit reserve. The smallest
                 time budget, including the dose time cap when enabled, covers
-                both travel legs. Assumes constant speed and consumption, direct
-                travel and no stops. Terrain and actual exposure at Jezero
-                require separate data.
+                both travel legs. Assumes constant speed and consumption and no
+                stops. Suggested traverse returns along the same waypoints; the
+                envelope shows direct reach. Terrain and actual exposure at
+                Jezero require separate data.
               </p>
             </details>
           </div>
