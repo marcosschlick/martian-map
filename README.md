@@ -1,16 +1,39 @@
-# React + Vite
+# Martian Map — Tuxonauts
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Tactical hyperlocalized EVA navigation HUD for Mars surface exploration, built for the **2026 NASA Space Apps Challenge** (*Interplanetary Survival Guide: Martian Map*).
 
-Currently, two official plugins are available:
+## Overview
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+**Martian Map** focuses on **Jezero Crater** and integrates **3 official NASA data layers** with survival-oriented UX mechanics for Extravehicular Activities (EVAs):
 
-## React Compiler
+- **Multi-Layer Mars Visualization:** Combines Viking optical imagery and MOLA elevation tiles from **NASA Mars Trek WMTS** with solar radiation/CME alerts from the **NASA DONKI API**.
+- **Point of No Return (Autonomy Circle):** Renders a dynamic safe return radius around the Habitat based on suit oxygen/battery reserves and active space weather conditions, flagging routes that enter high-risk slopes or exceed safe return margins.
+- **Pressurized Glove Mode:** Toggles between detailed mission planning and an oversized, high-contrast interface designed for astronauts wearing pressurized spacesuit gloves.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Tech Stack
 
-## Expanding the ESLint configuration
+- **Frontend:** React + Vite + Tailwind CSS
+- **Map Engine:** Leaflet (`EPSG:4326` equirectangular projection)
+- **NASA Data Sources:**
+  - [NASA Mars Trek WMTS](https://trek.nasa.gov/mars/) (Viking Optical Mosaic & MOLA Colorized Elevation)
+  - [NASA DONKI API](https://api.nasa.gov/) (Space Weather / CME Notifications)
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Running Locally
+
+```bash
+git clone git@github.com:marcosschlick/martian-map.git
+cd martian-map
+npm install
+npm run dev
+
+```
+
+## Team — Tuxonauts
+
+| Member | Role | GitHub |
+| --- | --- | --- |
+| Marcos da Silva Schlick | Team Owner | [@marcosschlick](https://github.com/marcosschlick) |
+| Maximiliano Olagorta Mello | Developer | [@MaxiiMello](https://www.google.com/search?q=https://github.com/MaxiiMello) |
+| Bernardo Ribeiro | Developer | [@Bernardo-Ribeiro](https://github.com/Bernardo-Ribeiro) |
+| Mauricio Carvalho | Developer | [@Maure7](https://github.com/Maure7) |
+| William Palhares Meireles | Developer | [@williamFRZ](https://github.com/williamFRZ) |
