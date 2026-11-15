@@ -10,8 +10,8 @@ Global Mars maps and orbital viewers lack hyperlocalized, real-time Extravehicul
 ### Solution
 A hyperlocalized tactical EVA navigation HUD centered on **Jezero Crater** (`18.38° N, 77.58° E`), built around three core pillars:
 
-1. **Multi-Layer NASA Data:** Combines Viking optical imagery and MOLA colorized topography/elevation from NASA Mars Trek WMTS with live space weather and CME radiation alerts from the NASA DONKI API.
-2. **Point of No Return (Autonomy Circle):** Renders a dynamic safety radius around the Habitat calculated from suit oxygen/battery reserves and solar radiation penalties, validating in real time whether planned EVA waypoints remain within safe return margins.
+1. **Multi-Layer NASA Data:** Combines Viking optical imagery and MOLA colorized topography/elevation from NASA Mars Trek WMTS with contextual CME notifications from NASA DONKI. Notifications do not measure local Mars surface radiation.
+2. **Point of No Return (Autonomy Circle):** Renders an illustrative return envelope from simulated suit oxygen/battery budgets and evaluates direct target travel against that budget. Space-weather notifications do not change the model or certify terrain traversability.
 3. **Pressurized Glove Mode:** A one-click HUD mode that switches from standard mission planning to a high-contrast, oversized-button layout engineered for astronauts operating in stiff pressurized spacesuit gloves.
 
 ---
@@ -40,9 +40,9 @@ A hyperlocalized tactical EVA navigation HUD centered on **Jezero Crater** (`18.
 - [x] **Modeled EVA Target Budget Status:** Compare unrounded Mars-sphere target distance with the analytic return radius, recognize the limit within 0.01 m, and display direct round-trip time, signed time margin, limiting resource and independent target colors without evaluating terrain or validating a route.
 
 ### Phase 4: Space Weather Integration (NASA DONKI)
-- [ ] **DONKI API Fetch & Fallback:** Query CME/solar radiation notifications from `https://api.nasa.gov/DONKI/notifications` using `import.meta.env.VITE_NASA_API_KEY || 'DEMO_KEY'` wrapped in `try/catch` with realistic static fallback data.
-- [ ] **Solar Storm Alert Badge:** Display active space weather status and radiation alert badges in the HUD.
-- [ ] **Radiation Autonomy Penalty:** Automatically shrink the Autonomy Circle safety radius when active solar storm / CME alerts are detected.
+- [x] **DONKI API Fetch & Fallback:** Query CME notifications for seven UTC calendar days on startup/manual Refresh, validate and normalize responses, and distinguish NASA results, valid empty results and an original-dated Historical demo fallback with provenance and bounded request handling.
+- [ ] **Solar Storm Alert Badge:** Future interpreted notification display; do not present CME messages as measurements of local Jezero radiation.
+- [ ] **Radiation Autonomy Penalty:** Requires a documented Mars-relevant model or an explicitly identified simulation before any numerical modifier can be introduced. CME presence, speed or a mention of Mars is not sufficient.
 
 ### Phase 5: Pressurized Glove Mode & Final Polish
 - [ ] **Pressurized Glove Mode Toggle:** Implement a one-click HUD mode switch that enlarges interactive controls to oversized touch targets and boosts visual contrast for stiff spacesuit gloves.

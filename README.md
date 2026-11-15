@@ -4,9 +4,10 @@ Tactical hyperlocalized EVA navigation HUD for Mars surface exploration, built f
 
 ## Overview
 
-**Martian Map** focuses on **Jezero Crater** and integrates **3 official NASA data layers** with survival-oriented UX mechanics for Extravehicular Activities (EVAs):
+**Martian Map** focuses on **Jezero Crater** and combines NASA planetary imagery, contextual space-weather notifications and illustrative planning tools for Extravehicular Activities (EVAs):
 
-- **Multi-Layer Mars Visualization:** Combines Viking optical imagery and MOLA elevation tiles from **NASA Mars Trek WMTS** with solar radiation/CME alerts from the **NASA DONKI API**.
+- **Multi-Layer Mars Visualization:** Combines Viking optical imagery, MOLA elevation tiles and the historical CTX mosaic.
+- **Space Weather Context:** Shows NASA DONKI CME notifications with their original issue dates, source links and query availability. These are not local radiation measurements.
 - **Modeled EVA Return Envelope and Target:** Illustrates outward-and-return travel reach from simulated oxygen/battery budgets and evaluates a selected target's direct travel budget. Terrain, traversability and space weather remain unevaluated.
 - **Pressurized Glove Mode:** Toggles between detailed mission planning and an oversized, high-contrast interface designed for astronauts wearing pressurized spacesuit gloves.
 
@@ -28,7 +29,7 @@ cp .env.example .env
 npm run dev
 ```
 
-Open `.env` and set `VITE_NASA_API_KEY` to your personal NASA API key (get a free key at [https://api.nasa.gov/](https://api.nasa.gov/)). Leaving it as `DEMO_KEY` still works as a fallback, subject to NASA's hourly rate limits.
+Open `.env` and set `VITE_NASA_API_KEY` to your personal NASA API key (get a free key at [https://api.nasa.gov/](https://api.nasa.gov/)). An unset or empty value uses NASA's public demonstration credential, subject to its request limits. Credentials are supplied at runtime and are not included in query messages or source-page links.
 
 ## CTX Detail imagery
 
@@ -153,11 +154,45 @@ The target color applies to one pixel-sized marker and a dashed **Direct estimat
 | 100% / 100% | 3,000 m | 180 min | -36 min | Exceeds modeled budget |
 | Either resource at 20% or below | Target retained | Depends on distance | Zero budget minus round-trip time | No excursion budget |
 
-The reference line connects the two coordinates in the map projection; distance is computed separately on the Mars sphere. It is **not a navigable route**, terrain survey or guarantee of return. The calculation retains the same illustrative capacities, 20 percentage-point protected reserve, constant 2 km/h speed/consumption and no-stop assumptions. Terrain, slopes, obstacles, science objectives, DONKI and glove mode remain outside this block.
+The reference line connects the two coordinates in the map projection; distance is computed separately on the Mars sphere. It is **not a navigable route**, terrain survey or guarantee of return. The calculation retains the same illustrative capacities, 20 percentage-point protected reserve, constant 2 km/h speed/consumption and no-stop assumptions. Space-weather notifications are separate contextual data; terrain, slopes, obstacles, science objectives, notification interpretation and glove mode remain outside this travel-budget calculation.
 
 Numeric checks generated target coordinates with the existing Mars envelope geometry for 1,800, 2,400 and 3,000 m. Additional checks covered distances 0.009 m and 0.011 m on either side of the limit, low reserves, null selection and zero budget at the Habitat. Interactive Chromium checks covered click/touch selection, replacement, clear, keyboard center selection and focus, unchanged view on selection/reserve edits, persistence across reset/framing/pan/zoom and the four imagery modes, and a simulated CTX HTTP 503 fallback. Marker/line counts remained one when selected and zero after clearing. Layouts were reviewed at 1440 × 900, 768 × 1024, 390 × 844, 320 × 568 and 667 × 375, including a touch-enabled browser context. Small panels scroll internally. These checks do not verify physical devices, screen readers, other browser engines or real terrain suitability.
 
 Review captures: [within budget](output/playwright/target-within.png), [budget exceeded with the same target](output/playwright/target-exceeded.png), [zero budget with target retained](output/playwright/target-zero.png). Browser clicks select map coordinates at display-pixel precision; the numeric reference cases above use generated spherical coordinates before display rounding.
+
+## DONKI notifications and historical fallback
+
+The **Space weather** card provides notification context only: **Solar event context · Mars surface radiation not evaluated.** It does not assign a dose, a danger level in Jezero, or a numerical modifier to either the return envelope or target evaluation. A CME's presence, speed or mention of Mars is insufficient for that purpose. Empty results and unavailable queries do not establish local radiation conditions. Interpretation and any future modifier require a documented Mars-relevant model or an explicitly identified simulation.
+
+Official references: [DONKI overview](https://ccmc.gsfc.nasa.gov/tools/DONKI/), [API documentation](https://ccmc.gsfc.nasa.gov/DONKI/api/), [notification guide](https://ccmc.gsfc.nasa.gov/DONKI/guide/notifications/).
+
+### Query and lifecycle
+
+Endpoint: `https://api.nasa.gov/DONKI/notifications`. The application sends `type=CME` and explicit `startDate`/`endDate` parameters. Each query computes the last **seven UTC calendar dates including today**, so on 2026-11-15 the period is 2026-11-09 through 2026-11-15. This is a calendar-date interval, not a rolling 168-hour window. The configured Vite NASA credential is used, with the public demonstration credential as a fallback; request URLs and credentials are never included in displayed error messages.
+
+The component queries once at startup and only again through **Refresh**. Reserve edits, target changes, imagery switches, pan and zoom do not trigger a query. A synchronous active-request guard and disabled Refresh prevent concurrent requests. The initial request is scheduled for the next task so StrictMode cleanup cancels its probe before it reaches the network. Cleanup cancels both a pending start and the active request; mounted/identity guards ignore obsolete completion. There is no retry loop, polling or midnight refresh. A later manual Refresh recalculates its UTC period.
+
+Requests have a **12-second timeout** covering fetch/body reading. HTTP status, JSON parsing and notification structure are checked separately. Network failure, HTTP 429, other HTTP errors, invalid JSON and unexpected contents produce a clearly identified historical fallback. Errors contain controlled explanations, not native fetch messages or credential-bearing URLs. A valid `[]` is preserved as **No CME notifications in queried period**, without substituting the historical example. Loading hides previous results rather than relabeling stale contents as current.
+
+### Fields and provenance
+
+The response is an array containing `messageID`, `messageType`, `messageIssueTime`, `messageURL` and `messageBody`. The application validates nonempty string fields, CME type, a valid UTC issue time within the queried dates, and official CCMC links without embedded credentials. Legacy CCMC page hosts are normalized to the current HTTPS host. Duplicate identifiers retain the newest issue, results sort newest first, and at most **three** are shown. The API's original issue timestamp is retained, including its source precision. Message bodies are selectable, wrapped plain text inside disclosures; external HTML is not inserted into the DOM.
+
+The card separates the queried UTC period, the current attempt's start time, each notification's original UTC issue time and the source. **Query attempt** is not the notification time or a last-success timestamp. NASA response and historical availability states do not represent a storm/radiation risk classification.
+
+The fallback is a verified historical NASA notification: [20240510-AL-003](https://ccmc.gsfc.nasa.gov/DONKI/view/Alert/30674/1), originally issued **2024-05-10 13:38 UTC**. Its short original excerpt describes detection by STEREO A/SOHO and the event start at 2024-05-10 07:12 UTC. The fallback keeps that original issue date and link; it is labeled **Historical demo**, **Historical example**, and explicitly says that the current query was unavailable. It is never dated as a new event or substituted for a valid empty response.
+
+The first live verification on 2026-11-15 returned HTTP 200 and four CME notifications for 2026-11-09–2026-11-15, with all five fields present. A later, unintercepted browser query displayed the latest three, including the newly issued `20261115-AL-002`. The historical record and its official page were separately checked against NASA. Independent requests can return newer data as notifications are issued.
+
+The card lives inside the existing scrollable HUD panel. Its entire visible rectangle is already included by **Show envelope** when calculating padding; no extra map overlay is introduced. The map, modeled budgets and destination calculations remain independent of the notification component.
+
+### Verification and review captures
+
+Interactive Chromium checks covered the real NASA response and intercepted responses for valid empty results, HTTP 429/503, invalid JSON, unexpected structure, a network failure and a response delayed beyond the 12-second timeout. Manual Refresh recovered after failures; repeated activation while loading produced one request, and a late response did not overwrite the recovery. Duplicate records were normalized and HTML-like message contents stayed literal text. Startup produced one request under React StrictMode. UTC date calculations were checked across month/year boundaries and leap day.
+
+Reserves, selected target, evaluation, imagery, center and zoom stayed unchanged through notification state transitions. Keyboard Tab/Enter and visible focus were checked, along with internal panel scrolling and **Show envelope** at 1440 × 900, 768 × 1024, 390 × 844, 320 × 568 and 667 × 375. The envelope stayed inside the map without intersecting the HUD panel. These checks do not verify physical devices, screen readers, other browser engines or NASA service availability beyond the observed requests. No automated test files or testing dependencies were added.
+
+Captures: [real NASA response](output/playwright/donki-nasa-real.png), [simulated valid empty response](output/playwright/donki-empty-simulated.png), [simulated HTTP 503 with the real historical example](output/playwright/donki-fallback-simulated.png). Only the first capture uses an unintercepted live query. The two other captures demonstrate controlled availability scenarios, not observed NASA outages or an observed absence of CME notifications.
 
 ## Team — Tuxonauts
 

@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import MarsMap from "./MarsMap.jsx";
+import SpaceWeather from "./SpaceWeather.jsx";
 import {
   calculateExcursion,
   evaluateTarget,
@@ -375,6 +376,7 @@ export default function App() {
               </p>
             </details>
           </div>
+          <SpaceWeather />
         </section>
       </main>
     </div>

@@ -3,8 +3,8 @@
 ## Project Overview
 **Martian Map** by **Tuxonauts** — built for the 2026 NASA Space Apps Challenge (*Interplanetary Survival Guide: Martian Map*).
 
-We are building a hyperlocalized tactical HUD for astronauts on Mars surface walks (EVAs) in Jezero Crater. The core concept combines 3 NASA data layers (optical imagery, topography/elevation, and solar radiation/space weather) with two human-centric safety mechanics:
-1. **Point of No Return (Autonomy Circle):** A dynamic safety radius around the Habitat calculated from suit oxygen/battery levels and real-time solar radiation alerts. Routes crossing outside this radius or entering steep terrain trigger immediate visual risk warnings.
+We are building a hyperlocalized tactical HUD for astronauts on Mars surface walks (EVAs) in Jezero Crater. The core concept combines NASA optical imagery, topography/elevation, and space-weather notifications as context, with two human-centric planning mechanics. DONKI notifications are not measurements of Mars surface radiation:
+1. **Point of No Return (Autonomy Circle):** An illustrative return envelope around the Habitat calculated from simulated suit oxygen/battery budgets. Space-weather context does not modify this model. Terrain evaluation remains pending; any future radiation modifier requires a documented Mars-relevant model or an explicitly identified simulation.
 2. **Pressurized Glove Mode:** A UI toggle that switches from mission planning mode to a high-contrast, oversized-button layout designed for astronauts wearing stiff pressurized gloves.
 
 ## Tech Stack & Dependencies
@@ -14,7 +14,7 @@ We are building a hyperlocalized tactical HUD for astronauts on Mars surface wal
 ## NASA Data Endpoints
 - **Optical Layer (Mars Trek WMTS):** `https://trek.nasa.gov/tiles/Mars/EQ/Mars_Viking_MDIM21_ClrMosaic_global_232m/1.0.0//default/default028mm/{z}/{y}/{x}.jpg`
 - **Elevation Layer (Mars Trek WMTS):** `https://trek.nasa.gov/tiles/Mars/EQ/Mars_MGS_MOLA_ClrShade_merge_global_463m/1.0.0//default/default028mm/{z}/{y}/{x}.jpg`
-- **Space Weather (NASA DONKI):** `https://api.nasa.gov/DONKI/notifications?type=CME&api_key=DEMO_KEY`
+- **Space Weather (NASA DONKI):** `https://api.nasa.gov/DONKI/notifications` (contextual CME notifications; supply explicit UTC dates and credentials at runtime).
 
 ## Coding Rules
 - **KISS (Keep It Simple, Stupid):** Write the simplest, cleanest code possible. Keep logic concentrated in a few files (`App.jsx`, `MarsMap.jsx`). Avoid unnecessary abstractions.
