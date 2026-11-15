@@ -173,6 +173,15 @@ doseMargin = remainingDose - simulatedTargetDose
 
 The model stores dose inputs in µSv and displays mSv. At full suit reserves and 0.30 mSv remaining, **Low rate** caps the dose budget at 180 min and battery still limits the trip to 144 min and 2.4 km. **High rate** caps the trip at 36 min and 600 m. A zero allowance removes the circle and retains the target. Selecting a scenario recalculates the circle and the target's time and dose margins in place. Selecting **Off** restores the suit-only calculation, and reactivating a scenario reuses the last allowance. DONKI data supplies event context separately from this calculation. [NASA DONKI](https://ccmc.gsfc.nasa.gov/tools/DONKI/)
 
+### Try it with one target
+
+1. Click **Reset reserves** and set **Radiation simulation** to **Off**. Use **Show envelope** and select a point about 1 km from the habitat.
+2. Switch to **High rate** with **Remaining demo dose** at 0.30 mSv. Keep the same target and compare **Time margin** and **Demo dose margin**.
+
+At exactly 1 km, the modeled round trip takes 60 min. The target moves from **Within modeled budget** with 84 min to spare to **Exceeds modeled budget** by 24 min. The high-rate trip uses 0.50 mSv of the simulated allowance, leaving a dose margin of −0.20 mSv.
+
+Numeric verification covered 642,663 combinations of integer suit reserves, rate presets, and selectable dose allowances. The checks included a depleted allowance and ties between limiting factors.
+
 ## DONKI notifications and historical fallback
 
 The **Space weather** card displays NASA notices about coronal mass ejections (CMEs) as context for the EVA planning demo. Assessing radiation at Jezero or applying a modifier to the return model would require a documented Mars-relevant model or an explicitly identified simulation.
@@ -202,6 +211,8 @@ The first live verification on 2026-11-15 returned HTTP 200 and four CME notific
 The card lives inside the existing scrollable HUD panel. Its entire visible rectangle is already included by **Show envelope** when calculating padding; no extra map overlay is introduced. The map, modeled budgets and destination calculations remain independent of the notification component.
 
 ### Verification and review captures
+
+After Vite restarted with a personal NASA key, a live request through the local `/api/donki/notifications` proxy returned HTTP 200 and five CME notices. The normalized result selected the three newest notices for display.
 
 Interactive Chromium checks covered the real NASA response and intercepted responses for valid empty results, HTTP 429/503, invalid JSON, unexpected structure, a network failure and a response delayed beyond the 12-second timeout. Manual Refresh recovered after failures; repeated activation while loading produced one request, and a late response did not overwrite the recovery. Duplicate records were normalized and HTML-like message contents stayed literal text. Startup produced one request under React StrictMode. UTC date calculations were checked across month/year boundaries and leap day.
 
