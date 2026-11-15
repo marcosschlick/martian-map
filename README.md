@@ -24,9 +24,11 @@ Tactical hyperlocalized EVA navigation HUD for Mars surface exploration, built f
 git clone git@github.com:marcosschlick/martian-map.git
 cd martian-map
 npm install
+cp .env.example .env
 npm run dev
-
 ```
+
+Open `.env` and set `VITE_NASA_API_KEY` to your personal NASA API key (get a free key at [https://api.nasa.gov/](https://api.nasa.gov/)). Leaving it as `DEMO_KEY` still works as a fallback, subject to NASA's hourly rate limits.
 
 ## Team — Tuxonauts
 
