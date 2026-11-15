@@ -1,3 +1,5 @@
+import MarsMap from "./MarsMap.jsx";
+
 export default function App() {
   return (
     <div className="flex h-screen w-full flex-col overflow-hidden bg-slate-950 text-slate-100">
@@ -18,9 +20,7 @@ export default function App() {
       </header>
 
       <main className="relative w-full flex-1 bg-slate-950">
-        <div className="flex h-full w-full items-center justify-center text-sm text-slate-500">
-          Leaflet Map Container (Jezero Crater)
-        </div>
+        <MarsMap />
       </main>
     </div>
   );

@@ -26,8 +26,8 @@ A hyperlocalized tactical EVA navigation HUD centered on **Jezero Crater** (`18.
 - [x] **Full-Viewport Tactical HUD Shell:** Configured full-screen `html, body, #root` layout in `src/index.css` and built the compact dark space-themed header and map placeholder in `src/App.jsx`.
 
 ### Phase 2: Mars Trek Map & Multi-Layer Visualization
-- [ ] **Leaflet `EPSG:4326` Map Initialization:** Initialize a `L.map` instance via `useRef`/`useEffect` in `src/MarsMap.jsx` using `crs: L.CRS.EPSG4326`, centered on Jezero Crater (`18.38° N, 77.58° E`), with proper React `StrictMode` cleanup (`map.remove()`).
-- [ ] **NASA Mars Trek Viking Optical Layer:** Add the global 232m Viking color mosaic WMTS tile layer with appropriate zoom bounds (`maxZoom`) to prevent 404 tile requests.
+- [x] **Leaflet `EPSG:4326` Map Initialization:** Initialize a `L.map` instance via `useRef`/`useEffect` in `src/MarsMap.jsx` using `crs: L.CRS.EPSG4326`, centered on Jezero Crater (`18.38° N, 77.58° E`), with proper React `StrictMode` cleanup (`map.remove()`).
+- [x] **NASA Mars Trek Viking Optical Layer:** Add the global 232m Viking color mosaic WMTS tile layer with appropriate zoom bounds (`maxZoom`) to prevent 404 tile requests.
 - [ ] **NASA Mars Trek MOLA Elevation Layer:** Add the global 463m MOLA colorized shaded relief WMTS tile layer for topography visualization.
 - [ ] **Habitat Base Marker:** Place a distinct Habitat Base marker with tactical styling/inline SVG icon at the Jezero Crater landing site.
 - [ ] **Floating HUD Layer Switcher:** Build a floating overlay control (`z-[1000]+`) to toggle between Optical, Elevation, and blended layer views.
