@@ -20,7 +20,7 @@ We are building a hyperlocalized tactical HUD for astronauts on Mars surface wal
 - **KISS (Keep It Simple, Stupid):** Write the simplest, cleanest code possible. Keep logic concentrated in a few files (`App.jsx`, `MarsMap.jsx`). Avoid unnecessary abstractions.
 - **DRY (Don't Repeat Yourself):** Reuse helper functions, constants (like NASA URLs, coordinates, and risk thresholds), and UI styles instead of duplicating logic across components.
 - **Zero Tests:** Do not write unit, integration, or E2E tests. Do not install testing frameworks.
-- **API Resilience:** Always wrap NASA API calls in `try/catch` with realistic static fallback data so the app never breaks if `DEMO_KEY` hits rate limits.
+- **API Resilience:** Always wrap NASA API calls in `try/catch` with realistic static fallback data so the app never breaks if `DEMO_KEY` hits rate limits. Use `import.meta.env.VITE_NASA_API_KEY || 'DEMO_KEY'` for NASA API calls.
 - **Map CRS:** Initialize Leaflet with `crs: L.CRS.EPSG4326` to match Mars Trek WMTS tiles.
 - **Language:** All UI text, code, comments, and commits must be in English.
 - **Formatting & Linting:** Always run `npm run format` and `npm run lint` after every code modification and fix any issues before finishing.
