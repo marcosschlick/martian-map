@@ -46,7 +46,7 @@ A hyperlocalized tactical EVA navigation HUD centered on **Jezero Crater** (`18.
 
 ### Phase 5: Pressurized Glove Mode & Final Polish
 - [x] **Pressurized Glove Mode Toggle:** Add an accessible HUD toggle with 44 px controls, opaque panels, and high-contrast active and focus states.
-- [ ] **Responsive Layout Verification:** Partially verified in Chromium at 1440 × 900, 768 × 1024 and 390 × 844. Pending: correct shared framing at 320 × 568 so Show envelope and Show science area remain legible instead of shrinking into a few pixels, and the science marker stays visible when inspecting the site. Recheck standard and glove modes, keyboard access, and preservation of reserves, destination and imagery selection before closing.
+- [x] **Responsive Layout Verification:** Verified in Chromium at 1440 × 900, 768 × 1024, 390 × 844, and 320 × 568 in standard and Pressurized Glove Mode, including shared Show envelope and Show science area framing, science marker visibility, keyboard access, and preservation of reserves, destination, and imagery selection.
 - [x] **Final Build & Quality Check:** Verify formatting, lint, the production build, and the application logo under a nested deploy path.
 
 ### Local Science and Demonstration Traverse

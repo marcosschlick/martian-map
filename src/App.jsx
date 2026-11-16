@@ -305,7 +305,7 @@ export default function App() {
         <section
           ref={reservesPanelRef}
           aria-labelledby="suit-reserves-title"
-          className="hud-panel hud-scroll mission-panel z-[1000] h-[45dvh] shrink-0 space-y-3 overflow-y-auto overscroll-contain border-t border-slate-800 bg-slate-950/90 p-3 backdrop-blur-sm"
+          className="hud-panel hud-scroll mission-panel z-[1000] h-[35dvh] shrink-0 space-y-3 overflow-y-auto overscroll-contain border-t border-slate-800 bg-slate-950/90 p-3 backdrop-blur-sm"
         >
           <div className={CARD}>
             <CardHeader

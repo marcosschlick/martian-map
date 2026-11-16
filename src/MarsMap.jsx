@@ -143,7 +143,10 @@ function frameMapBounds(map, geometryBounds, controlsElement, panelElement) {
     Math.max(...overlays.map((overlay) => overlay.right)) - bounds.left + 12;
   const panel = panelElement?.getBoundingClientRect();
   const right =
-    panel && panel.top < bounds.bottom && panel.bottom > bounds.top
+    panel &&
+    panel.left > bounds.left + 1 &&
+    panel.top < bounds.bottom - 1 &&
+    panel.bottom > bounds.top + 1
       ? bounds.right - panel.left + 12
       : 12;
   const attribution = container.querySelector(".leaflet-control-attribution");
@@ -153,14 +156,25 @@ function frameMapBounds(map, geometryBounds, controlsElement, panelElement) {
     12;
   const room = (left, top) =>
     Math.min(bounds.width - left - right, bounds.height - top - bottom);
-  const [left, top] =
+  let [left, top] =
     room(12, belowControls) >= room(besideControls, 12)
       ? [12, belowControls]
       : [besideControls, 12];
-  if (room(left, top) <= 0) return;
+  const minRoom = Math.min(76, bounds.width - 24, bounds.height - 24);
+  if (minRoom > 0 && room(left, top) < minRoom) {
+    top = Math.max(12, Math.min(top, bounds.height - bottom - minRoom));
+    left = Math.max(12, Math.min(left, bounds.width - right - minRoom));
+  }
+  if (room(left, top) <= 0) {
+    left = 12;
+    top = 12;
+  }
   map.fitBounds(geometryBounds, {
     paddingTopLeft: [left, top],
-    paddingBottomRight: [right, bottom],
+    paddingBottomRight: [
+      Math.max(12, Math.min(right, bounds.width - left - 1)),
+      Math.max(12, Math.min(bottom, bounds.height - top - 1)),
+    ],
     maxZoom: MAX_ZOOM,
     animate: false,
   });
@@ -584,70 +598,84 @@ export default function MarsMap({
     message += " · Enlarged beyond native detail";
   }
 
-  return (
-    <div className="relative h-full w-full">
-      <div
-        ref={containerRef}
-        role="region"
-        aria-label="Mars map"
-        className="h-full w-full bg-slate-950"
-      />
-      <div
-        ref={mapControlsRef}
-        className="pointer-events-none absolute top-2.5 left-14 z-[1000] flex max-w-[calc(100%-4.25rem)] flex-col items-start gap-2"
+  const imageryStatus = (
+    <>
+      <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-slate-50">
+        <span>{SOURCE_LABELS[activeLayer]}</span>
+        <span className="rounded border border-slate-800 bg-slate-900 px-1.5 font-mono text-[10px] text-slate-400 tabular-nums">
+          Zoom {zoom}
+        </span>
+      </p>
+      <p
+        role="status"
+        className={`flex items-center gap-1.5 transition-colors duration-300 sm:mt-1 sm:gap-2 ${!loading && (unavailable || partial) ? "text-amber-500" : "text-slate-400"}`}
       >
+        <StatusDot
+          tone={
+            loading
+              ? "accent"
+              : unavailable || partial
+                ? "warning"
+                : "available"
+          }
+          pulse={loading}
+        />
+        <span key={message} className="motion-safe:animate-hud-fade">
+          {message}
+        </span>
+      </p>
+      {activeLayer === "ctx" && (
+        <p className="text-slate-400 sm:mt-0.5">Preliminary / uncontrolled</p>
+      )}
+    </>
+  );
+
+  return (
+    <div className="flex h-full w-full flex-col">
+      <div className="relative min-h-0 flex-1">
         <div
-          role="group"
-          aria-label="Map data layer"
-          className={`pointer-events-auto grid grid-cols-2 gap-1 p-1 motion-safe:animate-hud-fade lg:flex ${FLOATING_PANEL}`}
-        >
-          {LAYER_OPTIONS.map(({ id, label }) => (
-            <button
-              key={id}
-              type="button"
-              title={LAYER_HINTS[id]}
-              aria-pressed={id === activeLayer}
-              onClick={() => onLayerChange(id)}
-              className={LAYER_BUTTON}
-            >
-              <Icon name={id} className="hidden size-3.5 lg:block" />
-              {label}
-            </button>
-          ))}
-        </div>
+          ref={containerRef}
+          role="region"
+          aria-label="Mars map"
+          className="h-full w-full bg-slate-950"
+        />
         <div
-          aria-label="Imagery source"
-          className={`pointer-events-auto px-2.5 py-2 text-[11px] motion-safe:animate-hud-fade ${FLOATING_PANEL}`}
-          style={{ animationDelay: "80ms" }}
+          ref={mapControlsRef}
+          className="pointer-events-none absolute top-2.5 left-14 z-[1000] flex max-w-[calc(100%-4.25rem)] flex-col items-start gap-2 [[data-glove-mode]_&]:left-16 [[data-glove-mode]_&]:max-w-[calc(100%-4.5rem)]"
         >
-          <p className="flex items-center gap-2 text-slate-50">
-            <span>{SOURCE_LABELS[activeLayer]}</span>
-            <span className="rounded border border-slate-800 bg-slate-900 px-1.5 font-mono text-[10px] text-slate-400 tabular-nums">
-              Zoom {zoom}
-            </span>
-          </p>
-          <p
-            role="status"
-            className={`mt-1 flex items-center gap-2 transition-colors duration-300 ${!loading && (unavailable || partial) ? "text-amber-500" : "text-slate-400"}`}
+          <div
+            role="group"
+            aria-label="Map data layer"
+            className={`pointer-events-auto grid grid-cols-2 gap-1 p-1 motion-safe:animate-hud-fade lg:flex ${FLOATING_PANEL}`}
           >
-            <StatusDot
-              tone={
-                loading
-                  ? "accent"
-                  : unavailable || partial
-                    ? "warning"
-                    : "available"
-              }
-              pulse={loading}
-            />
-            <span key={message} className="motion-safe:animate-hud-fade">
-              {message}
-            </span>
-          </p>
-          {activeLayer === "ctx" && (
-            <p className="mt-0.5 text-slate-400">Preliminary / uncontrolled</p>
-          )}
+            {LAYER_OPTIONS.map(({ id, label }) => (
+              <button
+                key={id}
+                type="button"
+                title={LAYER_HINTS[id]}
+                aria-pressed={id === activeLayer}
+                onClick={() => onLayerChange(id)}
+                className={LAYER_BUTTON}
+              >
+                <Icon name={id} className="hidden size-3.5 lg:block" />
+                {label}
+              </button>
+            ))}
+          </div>
+          <div
+            aria-label="Imagery source"
+            className={`pointer-events-auto hidden px-2.5 py-2 text-[11px] motion-safe:animate-hud-fade sm:block ${FLOATING_PANEL}`}
+            style={{ animationDelay: "80ms" }}
+          >
+            {imageryStatus}
+          </div>
         </div>
+      </div>
+      <div
+        aria-label="Imagery source"
+        className="hud-panel flex shrink-0 flex-wrap items-center gap-x-2.5 gap-y-0.5 border-t border-slate-800 bg-slate-950/90 px-2.5 py-1 text-[11px] sm:hidden"
+      >
+        {imageryStatus}
       </div>
     </div>
   );

@@ -226,6 +226,7 @@ body,
 [data-glove-mode] .hud-control[aria-pressed="true"] {
   color: #020617;
   background-color: #22d3ee;
+  border-color: #22d3ee;
 }
 
 [data-glove-mode] .hud-control[data-solar-notice] {
@@ -238,8 +239,22 @@ body,
   color: #94a3b8;
 }
 
-[data-glove-mode] .hud-control:focus-visible {
+[data-glove-mode]
+  :is(
+    .hud-control,
+    .hud-range,
+    a,
+    .leaflet-bar a,
+    .leaflet-container,
+    .science-site-marker
+  ):focus-visible {
   outline-color: #facc15;
+}
+
+[data-glove-mode] .leaflet-bar {
+  background-color: #020617 !important;
+  border-color: #94a3b8 !important;
+  backdrop-filter: none;
 }
 
 [data-glove-mode] summary.hud-control {
