@@ -21,7 +21,7 @@ export default defineConfig(({ command, mode, isPreview }) => {
     server: useDonkiProxy
       ? {
           proxy: {
-            "^/api/donki/notifications(?:\\?|$)": {
+            "^/api/donki(?:\\?|$)": {
               target: "https://api.nasa.gov",
               changeOrigin: true,
               headers: { "X-Api-Key": nasaKey },

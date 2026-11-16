@@ -134,9 +134,10 @@ export async function fetchNotifications(period, controller) {
     controller.abort();
   }, DONKI_TIMEOUT_MS);
   try {
-    const useProxy = import.meta.env.DONKI_PROXY_ENABLED;
+    const useProxy =
+      import.meta.env.PROD || import.meta.env.DONKI_PROXY_ENABLED;
     const url = useProxy
-      ? new URL("/api/donki/notifications", window.location.origin)
+      ? new URL("/api/donki", window.location.origin)
       : new URL(DONKI_ENDPOINT);
     const params = new URLSearchParams({
       startDate: period.startDate,
