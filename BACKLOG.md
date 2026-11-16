@@ -46,9 +46,9 @@ A hyperlocalized tactical EVA navigation HUD centered on **Jezero Crater** (`18.
 
 ### Phase 5: Pressurized Glove Mode & Final Polish
 - [x] **Pressurized Glove Mode Toggle:** Add an accessible HUD toggle with 44 px controls, opaque panels, and high-contrast active and focus states.
-- [x] **Responsive Layout Verification:** Verify the HUD and return envelope across desktop, tablet, portrait phone, and short landscape viewports in Chromium.
+- [ ] **Responsive Layout Verification:** Partially verified in Chromium at 1440 × 900, 768 × 1024 and 390 × 844. Pending: correct shared framing at 320 × 568 so Show envelope and Show science area remain legible instead of shrinking into a few pixels, and the science marker stays visible when inspecting the site. Recheck standard and glove modes, keyboard access, and preservation of reserves, destination and imagery selection before closing.
 - [x] **Final Build & Quality Check:** Verify formatting, lint, the production build, and the application logo under a nested deploy path.
 
 ### Local Science and Demonstration Traverse
 - [x] **Sourced Science Objective and Destination:** Identify an image-localized Jezero observation point, distinguish orbital interpretation from a proposed astronaut activity, expose provenance, and select it with the existing budget estimate without changing Habitat/suit assumptions.
-- [x] **Documented Obstacle-Aware Demo Traverse:** Interpret a bounded local exclusion from georeferenced imagery, disclose its project-defined limits, check complete traverse segments, and evaluate the proposed out-and-back path with the existing Mars resource model. Desktop/tablet/390 px phone interactions are verified; very short viewport framing remains limited as documented in README.
+- [x] **Documented Obstacle-Aware Demo Traverse:** Interpret a bounded local exclusion from georeferenced imagery, disclose its project-defined limits, check complete traverse segments, and evaluate the proposed out-and-back path with the existing Mars resource model. Desktop/tablet/390 px phone interactions are verified; shared 320 × 568 framing remains tracked by the open Responsive Layout Verification task.
