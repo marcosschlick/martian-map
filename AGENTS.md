@@ -14,10 +14,11 @@ We are building a hyperlocalized tactical HUD for astronauts on Mars surface wal
 ## NASA Data Endpoints
 - **Optical Layer (Mars Trek WMTS):** `https://trek.nasa.gov/tiles/Mars/EQ/Mars_Viking_MDIM21_ClrMosaic_global_232m/1.0.0//default/default028mm/{z}/{y}/{x}.jpg`
 - **Elevation Layer (Mars Trek WMTS):** `https://trek.nasa.gov/tiles/Mars/EQ/Mars_MGS_MOLA_ClrShade_merge_global_463m/1.0.0//default/default028mm/{z}/{y}/{x}.jpg`
+- **CTX Detail Layer (Esri / Caltech Murray Lab):** `https://astro.arcgis.com/arcgis/rest/services/OnMars/CTX/MapServer/tile/{z}/{y}/{x}` (`zoomOffset: -1`, `maxNativeZoom: 13`, historical beta01 orbital mosaic)
 - **Space Weather (NASA DONKI):** `https://api.nasa.gov/DONKI/notifications` (contextual CME notifications; supply explicit UTC dates and credentials at runtime).
 
 ## Coding Rules
-- **KISS (Keep It Simple, Stupid):** Write the simplest, cleanest code possible. Keep logic concentrated in a few files (`App.jsx`, `MarsMap.jsx`). Avoid unnecessary abstractions.
+- **KISS (Keep It Simple, Stupid):** Write the simplest, cleanest code possible. Keep logic concentrated in focused modules under `src/` (`App.jsx`, `MarsMap.jsx`, `SpaceWeather.jsx`, `HudKit.jsx`, `evaModel.js`, `scienceData.js`, `spaceWeather.js`, `useSpaceWeather.js`, `hudStyles.js`). Avoid unnecessary abstractions.
 - **DRY (Don't Repeat Yourself):** Reuse helper functions, constants (like NASA URLs, coordinates, and risk thresholds), and UI styles instead of duplicating logic across components.
 - **Zero Tests:** Do not write unit, integration, or E2E tests. Do not install testing frameworks.
 - **API Resilience:** Wrap NASA API calls in `try/catch` and provide a clearly labeled historical fallback. The local Vite proxy forwards `NASA_API_KEY` server-side when configured. The browser uses NASA's public `DEMO_KEY` for direct requests.

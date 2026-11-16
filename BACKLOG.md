@@ -2,17 +2,17 @@
 
 ## Project Context & Vision
 
-**Martian Map** by **Tuxonauts** is built for the **2026 NASA Space Apps Challenge** (*Interplanetary Survival Guide: Martian Map*).
+Martian Map, built by Tuxonauts for the 2026 NASA Space Apps Challenge (Interplanetary Survival Guide: Martian Map), is an EVA planning HUD for Jezero Crater (`18.38° N, 77.58° E`).
 
 ### Problem
-Global Mars maps and orbital viewers lack hyperlocalized, real-time Extravehicular Activity (EVA) survival telemetry for astronauts operating on foot. Surface crews need immediate spatial awareness of terrain hazards, life-support margins, and solar radiation conditions relative to their Habitat.
+Global Mars viewers show orbital imagery and elevation, but they do not tie those layers to suit life-support margins, local surface targets, or solar event notices during an EVA walk.
 
 ### Solution
-A hyperlocalized tactical EVA navigation HUD centered on **Jezero Crater** (`18.38° N, 77.58° E`), built around three core pillars:
+The HUD centers on Jezero Crater and brings three pieces onto one screen:
 
-1. **Multi-Layer NASA Data:** Combines Viking optical imagery and MOLA colorized topography/elevation from NASA Mars Trek WMTS with contextual CME notifications from NASA DONKI. Notifications do not measure local Mars surface radiation.
-2. **Point of No Return (Autonomy Circle):** Renders an illustrative return envelope from simulated suit budgets and an optional dose allowance, then evaluates direct target travel against the smallest time budget. DONKI supplies separate event context.
-3. **Pressurized Glove Mode:** A one-click HUD mode that switches from standard mission planning to a high-contrast, oversized-button layout engineered for astronauts operating in stiff pressurized spacesuit gloves.
+1. Multi-layer Mars imagery: NASA Mars Trek Viking optical tiles, MOLA shaded relief, a blended overlay, and an Esri-hosted historical CTX orbital mosaic, paired with contextual NASA DONKI CME notifications. DONKI notices do not measure surface radiation at Mars.
+2. Point of No Return envelope: An illustrative round-trip perimeter computed from simulated oxygen and battery budgets plus an optional radiation dose allowance, alongside direct target checks and a small local science traverse example.
+3. Pressurized Glove Mode: A toggle that switches the interface to opaque panels, 44 px minimum touch targets, and high-contrast cyan and yellow focus states for stiff spacesuit gloves.
 
 ---
 
@@ -51,4 +51,4 @@ A hyperlocalized tactical EVA navigation HUD centered on **Jezero Crater** (`18.
 
 ### Local Science and Demonstration Traverse
 - [x] **Sourced Science Objective and Destination:** Identify an image-localized Jezero observation point, distinguish orbital interpretation from a proposed astronaut activity, expose provenance, and select it with the existing budget estimate without changing Habitat/suit assumptions.
-- [x] **Documented Obstacle-Aware Demo Traverse:** Interpret a bounded local exclusion from georeferenced imagery, disclose its project-defined limits, check complete traverse segments, and evaluate the proposed out-and-back path with the existing Mars resource model. Desktop/tablet/390 px phone interactions are verified; shared 320 × 568 framing remains tracked by the open Responsive Layout Verification task.
+- [x] **Documented Obstacle-Aware Demo Traverse:** Interpret a bounded local exclusion from georeferenced imagery, disclose its project-defined limits, check complete traverse segments, and evaluate the proposed out-and-back path with the existing Mars resource model. Verified across desktop, tablet, 390 px, and 320 × 568 viewports.
